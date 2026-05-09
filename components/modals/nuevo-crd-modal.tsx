@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
-import { mockPacientes, mockEstudios } from '@/lib/mock-data'
+import { crdsApi } from '@/lib/api/crds'
+import { usePacientes } from '@/lib/api/pacientes'
 
 interface Props {
   open: boolean
@@ -12,11 +13,14 @@ interface Props {
 export function NuevoCRDModal({ open, onClose }: Props) {
   const [form, setForm] = useState({
     pacienteId: '',
-    estudio: '',
+    fechaCreacion: new Date().toISOString().split('T')[0],
+    estado: 'En curso' as 'En curso' | 'Completo' | 'Bloqueado',
     consentimientoFirmado: false,
-    observaciones: '',
   })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const { items: pacientes } = usePacientes({ pagination: { pageSize: 200 }, populate: undefined })
 
   const update = (k: keyof typeof form, v: string | boolean) =>
     setForm((f) => ({ ...f, [k]: v }))
@@ -24,10 +28,21 @@ export function NuevoCRDModal({ open, onClose }: Props) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    // TODO: POST /api/crds con el payload `form`
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    onClose()
+    setError(null)
+    try {
+      await crdsApi.create({
+        fechaCreacion: form.fechaCreacion,
+        estado: form.estado,
+        consentimientoFirmado: form.consentimientoFirmado,
+        paciente: form.pacienteId ? { id: parseInt(form.pacienteId, 10) } as never : undefined,
+      })
+      setForm({ pacienteId: '', fechaCreacion: new Date().toISOString().split('T')[0], estado: 'En curso', consentimientoFirmado: false })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el CRD')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -64,6 +79,11 @@ export function NuevoCRDModal({ open, onClose }: Props) {
         </>
       }
     >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <form id="nuevo-crd-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         <FormField label="Paciente" required>
           <select
@@ -73,38 +93,34 @@ export function NuevoCRDModal({ open, onClose }: Props) {
             required
           >
             <option value="">Seleccionar paciente...</option>
-            {mockPacientes.map((p) => (
-              <option key={p.id} value={p.codigoInclusion}>
+            {pacientes.map((p) => (
+              <option key={p.id} value={String(p.id)}>
                 {p.codigoInclusion} — {p.iniciales}
               </option>
             ))}
           </select>
         </FormField>
 
-        <FormField label="Estudio Clínico" required>
-          <select
-            className={selectCls}
-            value={form.estudio}
-            onChange={(e) => update('estudio', e.target.value)}
+        <FormField label="Fecha de Creación" required>
+          <input
+            type="date"
+            className={inputCls}
+            value={form.fechaCreacion}
+            onChange={(e) => update('fechaCreacion', e.target.value)}
             required
-          >
-            <option value="">Seleccionar estudio...</option>
-            {mockEstudios.map((e) => (
-              <option key={e.id} value={e.codigoProtocolo}>
-                {e.codigoProtocolo} — {e.titulo}
-              </option>
-            ))}
-          </select>
+          />
         </FormField>
 
-        <FormField label="Observaciones iniciales">
-          <textarea
-            className={`${inputCls} resize-none`}
-            rows={3}
-            placeholder="Notas clínicas relevantes al momento de apertura del CRD..."
-            value={form.observaciones}
-            onChange={(e) => update('observaciones', e.target.value)}
-          />
+        <FormField label="Estado inicial">
+          <select
+            className={selectCls}
+            value={form.estado}
+            onChange={(e) => update('estado', e.target.value)}
+          >
+            {['En curso', 'Completo', 'Bloqueado'].map((s) => (
+              <option key={s}>{s}</option>
+            ))}
+          </select>
         </FormField>
 
         <label className="flex items-center gap-3 cursor-pointer p-3 rounded-lg border border-[var(--border)] hover:bg-[var(--muted)] transition-colors">

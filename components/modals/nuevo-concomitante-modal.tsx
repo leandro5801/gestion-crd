@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
-import { mockPacientes, mockEstudios } from '@/lib/mock-data'
+import { concomitantesApi } from '@/lib/api/concomitantes'
+import { useCrds } from '@/lib/api/crds'
 
 interface Props {
   open: boolean
@@ -11,42 +12,39 @@ interface Props {
 
 export function NuevoConcomitanteModal({ open, onClose }: Props) {
   const [form, setForm] = useState({
-    pacienteId: '',
-    estudio: '',
+    crdId: '',
     medicamento: '',
     via: '',
     dosisDiaria: '',
-    fechaInicio: '',
-    fechaFin: '',
-    sinFechaFin: false,
-    motivoUso: '',
-    estado: 'Activo',
   })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const update = (k: keyof typeof form, v: string | boolean) =>
-    setForm((f) => ({ ...f, [k]: v }))
+  const { items: crds } = useCrds({
+    pagination: { pageSize: 200 },
+    populate: { paciente: { fields: ['id', 'iniciales', 'codigoInclusion'] } },
+  })
 
-  // When patient changes, auto-fill estudio from that patient's assigned study
-  const handlePacienteChange = (codigoInclusion: string) => {
-    const paciente = mockPacientes.find((p) => p.codigoInclusion === codigoInclusion)
-    const estudio = paciente ? mockEstudios.find((e) => e.codigoProtocolo === paciente.estudio) : null
-    setForm((f) => ({
-      ...f,
-      pacienteId: codigoInclusion,
-      estudio: estudio?.codigoProtocolo ?? '',
-    }))
-  }
-
-  const activePacientes = useMemo(() => mockPacientes.filter((p) => p.estado === 'Activo'), [])
+  const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    // TODO: POST /api/tratamiento-concomitantes con el payload `form`
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    onClose()
+    setError(null)
+    try {
+      await concomitantesApi.create({
+        medicamento: form.medicamento,
+        via: form.via || undefined,
+        dosisDiaria: form.dosisDiaria || undefined,
+        crd: form.crdId ? { id: parseInt(form.crdId, 10) } as never : undefined,
+      })
+      setForm({ crdId: '', medicamento: '', via: '', dosisDiaria: '' })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el tratamiento')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -83,32 +81,29 @@ export function NuevoConcomitanteModal({ open, onClose }: Props) {
         </>
       }
     >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <form id="nuevo-concomitante-form" onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {/* Patient drives the study selection */}
-        <FormField label="Paciente" required className="col-span-1 sm:col-span-2">
+        <FormField label="CRD / Paciente" required className="col-span-1 sm:col-span-2">
           <select
             className={selectCls}
-            value={form.pacienteId}
-            onChange={(e) => handlePacienteChange(e.target.value)}
+            value={form.crdId}
+            onChange={(e) => update('crdId', e.target.value)}
             required
           >
-            <option value="">Seleccionar paciente activo...</option>
-            {activePacientes.map((p) => (
-              <option key={p.id} value={p.codigoInclusion}>
-                {p.codigoInclusion} — {p.iniciales} ({p.estudio})
-              </option>
-            ))}
+            <option value="">Seleccionar CRD...</option>
+            {crds.map((c) => {
+              const p = typeof c.paciente === 'object' ? c.paciente : null
+              return (
+                <option key={c.id} value={String(c.id)}>
+                  CRD #{c.id} — {p?.codigoInclusion ?? '?'} {p?.iniciales ? `(${p.iniciales})` : ''}
+                </option>
+              )
+            })}
           </select>
-        </FormField>
-
-        {/* Estudio auto-filled, read-only */}
-        <FormField label="Estudio (asignado al paciente)" required className="col-span-1 sm:col-span-2">
-          <input
-            className={`${inputCls} bg-[var(--muted)] cursor-not-allowed`}
-            value={form.estudio || '—'}
-            readOnly
-            tabIndex={-1}
-          />
         </FormField>
 
         <FormField label="Nombre del Medicamento" required className="col-span-1 sm:col-span-2">
@@ -121,12 +116,11 @@ export function NuevoConcomitanteModal({ open, onClose }: Props) {
           />
         </FormField>
 
-        <FormField label="Vía de Administración" required className="col-span-1">
+        <FormField label="Vía de Administración" className="col-span-1">
           <select
             className={selectCls}
             value={form.via}
             onChange={(e) => update('via', e.target.value)}
-            required
           >
             <option value="">Seleccionar vía...</option>
             {['Oral', 'Intravenosa', 'Subcutánea', 'Intramuscular', 'Inhalatoria', 'Tópica', 'Transdérmica'].map(
@@ -135,68 +129,13 @@ export function NuevoConcomitanteModal({ open, onClose }: Props) {
           </select>
         </FormField>
 
-        <FormField label="Dosis Diaria" required className="col-span-1">
+        <FormField label="Dosis Diaria" className="col-span-1">
           <input
             className={inputCls}
             placeholder="Ej: 1.7g (2 tabs/día)"
             value={form.dosisDiaria}
             onChange={(e) => update('dosisDiaria', e.target.value)}
-            required
           />
-        </FormField>
-
-        <FormField label="Motivo de Uso" required className="col-span-1 sm:col-span-2">
-          <input
-            className={inputCls}
-            placeholder="Diagnóstico o indicación clínica"
-            value={form.motivoUso}
-            onChange={(e) => update('motivoUso', e.target.value)}
-            required
-          />
-        </FormField>
-
-        <FormField label="Fecha de Inicio" required className="col-span-1">
-          <input
-            type="date"
-            className={inputCls}
-            value={form.fechaInicio}
-            onChange={(e) => update('fechaInicio', e.target.value)}
-            required
-          />
-        </FormField>
-
-        <FormField label="Fecha de Fin" className="col-span-1">
-          <input
-            type="date"
-            className={inputCls}
-            value={form.fechaFin}
-            onChange={(e) => update('fechaFin', e.target.value)}
-            disabled={form.sinFechaFin as boolean}
-          />
-        </FormField>
-
-        <div className="col-span-1 sm:col-span-2">
-          <label className="flex items-center gap-2.5 cursor-pointer">
-            <input
-              type="checkbox"
-              className="w-4 h-4 rounded accent-[var(--brand-teal)]"
-              checked={form.sinFechaFin as boolean}
-              onChange={(e) => update('sinFechaFin', e.target.checked)}
-            />
-            <span className="text-sm text-[var(--foreground)]">Tratamiento crónico (sin fecha de fin definida)</span>
-          </label>
-        </div>
-
-        <FormField label="Estado" className="col-span-1 sm:col-span-2">
-          <select
-            className={selectCls}
-            value={form.estado}
-            onChange={(e) => update('estado', e.target.value)}
-          >
-            <option>Activo</option>
-            <option>Finalizado</option>
-            <option>Suspendido</option>
-          </select>
         </FormField>
 
         <div className="col-span-1 sm:col-span-2 p-3 bg-[var(--brand-teal-muted)] border border-teal-200 rounded-lg">

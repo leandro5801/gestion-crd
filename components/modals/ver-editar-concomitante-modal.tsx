@@ -2,7 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { X, Edit2, Save, Stethoscope, CheckCircle } from 'lucide-react'
-import { mockPacientes, mockEstudios, type TratamientoConcomitante } from '@/lib/mock-data'
+import { type TratamientoConcomitante } from '@/lib/mock-data'
+import { usePacientes } from '@/lib/api/pacientes'
+import { useEstudios } from '@/lib/api/estudios'
+import { updateTratamientoConcomitante } from '@/lib/api/concomitantes'
 
 const selectCls = 'w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white focus:outline-none focus:border-[var(--brand-teal)] transition-colors'
 const inputCls = 'w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[var(--brand-teal)] transition-colors'
@@ -24,6 +27,8 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [form, setForm] = useState<TratamientoConcomitante | null>(null)
+  const { data: pacientes = [] } = usePacientes()
+  const { data: estudios = [] } = useEstudios()
 
   useEffect(() => {
     if (concomitante) { setForm({ ...concomitante }); setEditing(false); setSaved(false) }
@@ -33,8 +38,8 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
 
   // When patient changes, auto-fill estudio
   const handlePacienteChange = (codigoInclusion: string) => {
-    const paciente = mockPacientes.find((p) => p.codigoInclusion === codigoInclusion)
-    const estudio = paciente ? mockEstudios.find((e) => e.codigoProtocolo === paciente.estudio) : null
+    const paciente = pacientes.find((p) => p.codigoInclusion === codigoInclusion)
+    const estudio = paciente ? estudios.find((e) => e.codigoProtocolo === paciente.estudio) : null
     setForm((f) => f ? {
       ...f,
       pacienteId: codigoInclusion,
@@ -45,10 +50,14 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
 
   const handleSave = async () => {
     setSaving(true)
-    // TODO: PUT /api/tratamiento-concomitantes/:id — { data: form }
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false); setSaved(true); setEditing(false)
-    setTimeout(() => setSaved(false), 2500)
+    try {
+      await updateTratamientoConcomitante(concomitante.id, form)
+      setSaving(false); setSaved(true); setEditing(false)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (error) {
+      console.error('Error saving concomitante:', error)
+      setSaving(false)
+    }
   }
 
   return (
@@ -95,7 +104,7 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
             {editing ? (
               <select value={form.pacienteId} onChange={(e) => handlePacienteChange(e.target.value)} className={selectCls}>
                 <option value="">Seleccionar paciente...</option>
-                {mockPacientes.map((p) => (
+                {pacientes.map((p) => (
                   <option key={p.id} value={p.codigoInclusion}>{p.codigoInclusion} — {p.iniciales} ({p.estudio})</option>
                 ))}
               </select>

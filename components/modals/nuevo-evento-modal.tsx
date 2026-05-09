@@ -1,9 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
-import { mockEstudios, mockPacientes } from '@/lib/mock-data'
+import { eventosAdversosApi } from '@/lib/api/eventos-adversos'
+import { useAdministraciones } from '@/lib/api/administraciones'
+import { useTiposEventoAdverso } from '@/lib/api/tipos-evento-adverso'
+import type { EventoIntensidad, EventoGravedad, EventoImputabilidad } from '@/lib/types'
 
 interface Props {
   open: boolean
@@ -25,47 +28,53 @@ const SOC_LIST = [
 
 export function NuevoEventoModal({ open, onClose }: Props) {
   const [form, setForm] = useState({
-    tipo: '',
+    administracionId: '',
+    tipoEventoAdversoId: '',
     SOC: '',
-    pacienteId: '',
-    estudio: '',
-    intensidad: '',
-    gravedad: '',
-    imputabilidad: '',
-    fechaInicio: '',
-    fechaFin: '',
-    ongoing: false,
+    intensidad: '' as EventoIntensidad | '',
+    gravedad: '' as EventoGravedad | '',
+    imputabilidad: '' as EventoImputabilidad | '',
     suspensionTratamiento: false,
-    descripcion: '',
   })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const { items: administraciones } = useAdministraciones({
+    pagination: { pageSize: 200 },
+    populate: { crd: { populate: { paciente: { fields: ['id', 'iniciales', 'codigoInclusion'] } } } },
+  })
+  const { items: tiposEA } = useTiposEventoAdverso({ pagination: { pageSize: 100 } })
 
   const update = (k: keyof typeof form, v: string | boolean) =>
     setForm((f) => ({ ...f, [k]: v }))
-
-  // When patient changes, auto-fill estudio from that patient's assigned study
-  const handlePacienteChange = (codigoInclusion: string) => {
-    const paciente = mockPacientes.find((p) => p.codigoInclusion === codigoInclusion)
-    const estudio = paciente ? mockEstudios.find((e) => e.codigoProtocolo === paciente.estudio) : null
-    setForm((f) => ({
-      ...f,
-      pacienteId: codigoInclusion,
-      estudio: estudio?.codigoProtocolo ?? '',
-    }))
-  }
-
-  // Patients filtered to active only
-  const activePacientes = useMemo(() => mockPacientes.filter((p) => p.estado === 'Activo'), [])
 
   const isSevero = form.intensidad === 'Severo'
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    // TODO: POST /api/eventos-adversos con el payload `form`
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    onClose()
+    setError(null)
+    try {
+      await eventosAdversosApi.create({
+        SOC: form.SOC || undefined,
+        intensidad: form.intensidad as EventoIntensidad,
+        gravedad: form.gravedad as EventoGravedad,
+        imputabilidad: form.imputabilidad as EventoImputabilidad,
+        suspensionTratamiento: form.suspensionTratamiento,
+        administracion_medicamento: form.administracionId
+          ? { id: parseInt(form.administracionId, 10) } as never
+          : undefined,
+        tipo_evento_adverso: form.tipoEventoAdversoId
+          ? { id: parseInt(form.tipoEventoAdversoId, 10) } as never
+          : undefined,
+      })
+      setForm({ administracionId: '', tipoEventoAdversoId: '', SOC: '', intensidad: '', gravedad: '', imputabilidad: '', suspensionTratamiento: false })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el evento')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -102,6 +111,11 @@ export function NuevoEventoModal({ open, onClose }: Props) {
         </>
       }
     >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <form id="nuevo-evento-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* SAE Alert */}
         {isSevero && (
@@ -117,35 +131,43 @@ export function NuevoEventoModal({ open, onClose }: Props) {
           </div>
         )}
 
-        {/* Patient / Study — patient drives study */}
+        {/* Administración vinculada */}
         <div>
           <p className="text-xs font-bold uppercase tracking-widest text-[var(--muted-foreground)] mb-3">
-            Paciente y Estudio
+            Vinculación
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Paciente" required className="col-span-1 sm:col-span-2">
+            <FormField label="Administración de medicamento" required className="col-span-1 sm:col-span-2">
               <select
                 className={selectCls}
-                value={form.pacienteId}
-                onChange={(e) => handlePacienteChange(e.target.value)}
+                value={form.administracionId}
+                onChange={(e) => update('administracionId', e.target.value)}
                 required
               >
-                <option value="">Seleccionar paciente activo...</option>
-                {activePacientes.map((p) => (
-                  <option key={p.id} value={p.codigoInclusion}>
-                    {p.codigoInclusion} — {p.iniciales} ({p.estudio})
-                  </option>
-                ))}
+                <option value="">Seleccionar administración...</option>
+                {administraciones.map((a) => {
+                  const crd = typeof a.crd === 'object' ? a.crd : null
+                  const p = typeof crd?.paciente === 'object' ? crd?.paciente : null
+                  return (
+                    <option key={a.id} value={String(a.id)}>
+                      #{a.id} — {p?.codigoInclusion ?? 'CRD desconocido'} — Dosis #{a.numeroDosis} ({a.dosisMg}mg {a.via})
+                    </option>
+                  )
+                })}
               </select>
             </FormField>
 
-            <FormField label="Estudio (asignado al paciente)" required className="col-span-1 sm:col-span-2">
-              <input
-                className={`${inputCls} bg-[var(--muted)] cursor-not-allowed`}
-                value={form.estudio || '—'}
-                readOnly
-                tabIndex={-1}
-              />
+            <FormField label="Tipo de Evento Adverso" className="col-span-1 sm:col-span-2">
+              <select
+                className={selectCls}
+                value={form.tipoEventoAdversoId}
+                onChange={(e) => update('tipoEventoAdversoId', e.target.value)}
+              >
+                <option value="">Seleccionar tipo (opcional)...</option>
+                {tiposEA.map((t) => (
+                  <option key={t.id} value={String(t.id)}>{t.nombre}</option>
+                ))}
+              </select>
             </FormField>
           </div>
         </div>
@@ -156,39 +178,14 @@ export function NuevoEventoModal({ open, onClose }: Props) {
             Datos del Evento
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Tipo de Evento / Término MedDRA" required className="col-span-1 sm:col-span-2">
-              <input
-                className={inputCls}
-                placeholder="Ej: Infarto Agudo de Miocardio"
-                value={form.tipo}
-                onChange={(e) => update('tipo', e.target.value)}
-                required
-              />
-            </FormField>
-
-            <FormField label="Clasificación SOC (WHO-ART)" required className="col-span-1">
+            <FormField label="Clasificación SOC (WHO-ART)" className="col-span-1 sm:col-span-2">
               <select
                 className={selectCls}
                 value={form.SOC}
                 onChange={(e) => update('SOC', e.target.value)}
-                required
               >
                 <option value="">Seleccionar sistema orgánico...</option>
                 {SOC_LIST.map((s) => <option key={s}>{s}</option>)}
-              </select>
-            </FormField>
-
-            <FormField label="Imputabilidad al Fármaco" required className="col-span-1">
-              <select
-                className={selectCls}
-                value={form.imputabilidad}
-                onChange={(e) => update('imputabilidad', e.target.value)}
-                required
-              >
-                <option value="">Seleccionar...</option>
-                {['Definitiva', 'Probable', 'Posible', 'No relacionado', 'No clasificable'].map((i) => (
-                  <option key={i}>{i}</option>
-                ))}
               </select>
             </FormField>
 
@@ -215,11 +212,12 @@ export function NuevoEventoModal({ open, onClose }: Props) {
               </div>
             </FormField>
 
-            <FormField label="Gravedad (ICH E2A)" className="col-span-1">
+            <FormField label="Gravedad (ICH E2A)" required className="col-span-1">
               <select
                 className={selectCls}
                 value={form.gravedad}
                 onChange={(e) => update('gravedad', e.target.value)}
+                required
               >
                 <option value="">Seleccionar...</option>
                 {['No grave', 'Muerte', 'Amenaza vida', 'Hospitalización', 'Invalidez', 'Defecto congénito'].map(
@@ -228,67 +226,31 @@ export function NuevoEventoModal({ open, onClose }: Props) {
               </select>
             </FormField>
 
-            <FormField label="Descripción Clínica" required className="col-span-1 sm:col-span-2">
-              <textarea
-                className={`${inputCls} resize-none`}
-                rows={3}
-                placeholder="Descripción clínica detallada del evento..."
-                value={form.descripcion}
-                onChange={(e) => update('descripcion', e.target.value)}
+            <FormField label="Imputabilidad al Fármaco" required className="col-span-1">
+              <select
+                className={selectCls}
+                value={form.imputabilidad}
+                onChange={(e) => update('imputabilidad', e.target.value)}
                 required
-              />
+              >
+                <option value="">Seleccionar...</option>
+                {['Definitiva', 'Probable', 'Posible', 'No relacionado', 'No clasificable'].map((i) => (
+                  <option key={i}>{i}</option>
+                ))}
+              </select>
             </FormField>
           </div>
         </div>
 
-        {/* Dates */}
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-[var(--muted-foreground)] mb-3">
-            Temporalidad
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Fecha de Inicio" required className="col-span-1">
-              <input
-                type="date"
-                className={inputCls}
-                value={form.fechaInicio}
-                onChange={(e) => update('fechaInicio', e.target.value)}
-                required
-              />
-            </FormField>
-
-            <FormField label="Fecha de Fin" className="col-span-1">
-              <input
-                type="date"
-                className={inputCls}
-                value={form.fechaFin}
-                onChange={(e) => update('fechaFin', e.target.value)}
-                disabled={form.ongoing}
-              />
-            </FormField>
-          </div>
-
-          <div className="flex flex-col gap-2 mt-3">
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded accent-[var(--brand-teal)]"
-                checked={form.ongoing}
-                onChange={(e) => update('ongoing', e.target.checked)}
-              />
-              <span className="text-sm text-[var(--foreground)]">Evento en curso (sin fecha de resolución)</span>
-            </label>
-            <label className="flex items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                className="w-4 h-4 rounded accent-[var(--brand-teal)]"
-                checked={form.suspensionTratamiento}
-                onChange={(e) => update('suspensionTratamiento', e.target.checked)}
-              />
-              <span className="text-sm text-[var(--foreground)]">Requirió suspensión del tratamiento del estudio</span>
-            </label>
-          </div>
-        </div>
+        <label className="flex items-center gap-2.5 cursor-pointer">
+          <input
+            type="checkbox"
+            className="w-4 h-4 rounded accent-[var(--brand-teal)]"
+            checked={form.suspensionTratamiento}
+            onChange={(e) => update('suspensionTratamiento', e.target.checked)}
+          />
+          <span className="text-sm text-[var(--foreground)]">Requirió suspensión del tratamiento del estudio</span>
+        </label>
       </form>
     </Modal>
   )

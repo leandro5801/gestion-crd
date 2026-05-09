@@ -25,44 +25,19 @@ import {
 import { StatCard } from '@/components/ui/stat-card'
 import { SeverityBadge } from '@/components/ui/status-badge'
 import { DataPagination } from '@/components/ui/data-pagination'
-import {
-  mockEnrolamiento,
-  mockActividadReciente,
-  mockEventosAdversos,
-  type ActividadReciente,
-} from '@/lib/mock-data'
-
-const actividadIcon: Record<ActividadReciente['tipo'], React.ReactNode> = {
-  sae: <ShieldAlert className="w-4 h-4 text-red-500" />,
-  enrollment: <Users className="w-4 h-4 text-[var(--brand-teal)]" />,
-  medication: <Pill className="w-4 h-4 text-amber-500" />,
-  crd: <FileText className="w-4 h-4 text-slate-500" />,
-  signal: <RefreshCw className="w-4 h-4 text-blue-500" />,
-}
-
-const actividadBg: Record<ActividadReciente['tipo'], string> = {
-  sae: 'bg-red-50',
-  enrollment: 'bg-[var(--brand-teal-muted)]',
-  medication: 'bg-amber-50',
-  crd: 'bg-slate-100',
-  signal: 'bg-blue-50',
-}
-
-const casosRecientes = mockEventosAdversos.slice(0, 4).map((e) => ({
-  subjectId: e.pacienteId,
-  study: e.estudio,
-  status: e.intensidad,
-  lastEvent: e.tipo,
-}))
+import { useDashboardSummary } from '@/lib/api/dashboard'
 
 export function DashboardContent() {
   const [page, setPage] = useState(1)
+  const { summary, isLoading } = useDashboardSummary()
 
-  const estudiosActivos = 12
-  const totalPacientes = 1482
-  const totalEA = 24
-  const seriosEA = 3
-  const medicacion = '8.5k'
+  const estudiosActivos = summary?.estudiosActivos ?? 0
+  const totalPacientes = summary?.totalPacientes ?? 0
+  const totalEA = summary?.eventosAdversos ?? 0
+  const seriosEA = summary?.eventosSerios ?? 0
+  const medicacion = summary?.medicacionAdministrada ?? 0
+  const recentes = summary?.recentes ?? []
+  const pacientesPorMes = summary?.pacientesPorMes ?? []
 
   return (
     <div className="p-6 flex flex-col gap-6">
@@ -70,7 +45,7 @@ export function DashboardContent() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           label="Estudios Activos"
-          value={estudiosActivos}
+          value={isLoading ? '...' : estudiosActivos}
           badge="+2 this quarter"
           badgeVariant="teal"
           icon={<FlaskConical className="w-5 h-5 text-[var(--brand-teal)]" />}
@@ -78,7 +53,7 @@ export function DashboardContent() {
         />
         <StatCard
           label="Total Pacientes"
-          value={totalPacientes.toLocaleString()}
+          value={isLoading ? '...' : totalPacientes.toLocaleString()}
           badge="+124 new"
           badgeVariant="teal"
           icon={<Users className="w-5 h-5 text-[var(--brand-teal)]" />}
@@ -86,7 +61,7 @@ export function DashboardContent() {
         />
         <StatCard
           label="Eventos Adversos"
-          value={totalEA}
+          value={isLoading ? '...' : totalEA}
           badge={`${seriosEA} Serious/SAE`}
           badgeVariant="red"
           icon={<AlertTriangle className="w-5 h-5 text-red-500" />}
@@ -94,8 +69,8 @@ export function DashboardContent() {
         />
         <StatCard
           label="Medicación Administrada"
-          value={medicacion}
-          badge="8.5k doses"
+          value={isLoading ? '...' : medicacion}
+          badge="Registros"
           badgeVariant="amber"
           icon={<Pill className="w-5 h-5 text-amber-500" />}
           accentColor="#f59e0b"
@@ -115,7 +90,7 @@ export function DashboardContent() {
             </div>
           </div>
           <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={mockEnrolamiento} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
+            <LineChart data={pacientesPorMes} margin={{ top: 12, right: 12, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f3f7" />
               <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#6b7a8d' }} axisLine={false} tickLine={false} />
               <YAxis tick={{ fontSize: 11, fill: '#6b7a8d' }} axisLine={false} tickLine={false} />
@@ -153,10 +128,10 @@ export function DashboardContent() {
           </ResponsiveContainer>
         </div>
 
-        {/* Recent activity */}
+        {/* Recent adverse events */}
         <div className="bg-white rounded-xl border border-[var(--border)] p-5 flex flex-col">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-semibold text-base text-[var(--foreground)]">Actividad Reciente</h2>
+            <h2 className="font-semibold text-base text-[var(--foreground)]">Eventos Recientes</h2>
             <Link
               href="/eventos-adversos"
               className="text-xs text-[var(--brand-teal)] font-semibold hover:underline flex items-center gap-0.5"
@@ -165,20 +140,25 @@ export function DashboardContent() {
             </Link>
           </div>
           <div className="flex flex-col gap-3 flex-1">
-            {mockActividadReciente.map((item) => (
-              <div key={item.id} className="flex items-start gap-3">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${actividadBg[item.tipo]}`}
-                >
-                  {actividadIcon[item.tipo]}
+            {recentes.length === 0 && !isLoading && (
+              <p className="text-sm text-[var(--muted-foreground)] italic text-center mt-4">
+                No hay eventos recientes.
+              </p>
+            )}
+            {recentes.map((e, i) => (
+              <div key={e.id ?? i} className="flex items-start gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${e.intensidad === 'Severo' ? 'bg-red-50' : e.intensidad === 'Moderado' ? 'bg-amber-50' : 'bg-slate-100'}`}>
+                  <ShieldAlert className={`w-4 h-4 ${e.intensidad === 'Severo' ? 'text-red-500' : e.intensidad === 'Moderado' ? 'text-amber-500' : 'text-slate-500'}`} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-[var(--foreground)] leading-tight">{item.titulo}</p>
-                  <p className="text-xs text-[var(--muted-foreground)] leading-relaxed mt-0.5 line-clamp-2">
-                    {item.descripcion}
+                  <p className="text-sm font-medium text-[var(--foreground)] leading-tight">
+                    {e.SOC ?? 'Evento adverso'}
+                  </p>
+                  <p className="text-xs text-[var(--muted-foreground)] leading-relaxed mt-0.5">
+                    {e.gravedad} · {e.imputabilidad}
                   </p>
                   <p className="text-[10px] font-semibold text-[var(--muted-foreground)] uppercase tracking-wider mt-1">
-                    {item.tiempo}
+                    {e.intensidad}
                   </p>
                 </div>
               </div>
@@ -195,9 +175,12 @@ export function DashboardContent() {
             <button className="px-4 py-2 text-sm font-medium border border-[var(--border)] rounded-lg text-[var(--foreground)] hover:bg-[var(--muted)] transition-colors">
               Exportar
             </button>
-            <button className="px-4 py-2 text-sm font-semibold bg-[var(--brand-teal)] text-white rounded-lg hover:bg-[var(--brand-teal-dark)] transition-colors">
+            <Link
+              href="/eventos-adversos"
+              className="px-4 py-2 text-sm font-semibold bg-[var(--brand-teal)] text-white rounded-lg hover:bg-[var(--brand-teal-dark)] transition-colors"
+            >
               Nuevo Reporte
-            </button>
+            </Link>
           </div>
         </div>
 
@@ -205,7 +188,7 @@ export function DashboardContent() {
           <table className="w-full">
             <thead>
               <tr className="border-b border-[var(--border)]">
-                {['Subject ID', 'Study', 'Status', 'Last Event', 'Actions'].map((h) => (
+                {['SOC', 'Gravedad', 'Intensidad', 'Imputabilidad', 'Actions'].map((h) => (
                   <th
                     key={h}
                     className="px-5 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
@@ -216,17 +199,17 @@ export function DashboardContent() {
               </tr>
             </thead>
             <tbody>
-              {casosRecientes.map((row, i) => (
+              {recentes.slice(0, 4).map((e, i) => (
                 <tr
-                  key={i}
+                  key={e.id ?? i}
                   className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)] transition-colors"
                 >
-                  <td className="px-5 py-4 text-sm font-semibold text-[var(--foreground)]">#{row.subjectId}</td>
-                  <td className="px-5 py-4 text-sm text-[var(--foreground)]">{row.study}</td>
+                  <td className="px-5 py-4 text-sm font-semibold text-[var(--foreground)]">{e.SOC ?? '—'}</td>
+                  <td className="px-5 py-4 text-sm text-[var(--foreground)]">{e.gravedad}</td>
                   <td className="px-5 py-4">
-                    <SeverityBadge level={row.status} />
+                    <SeverityBadge level={e.intensidad} />
                   </td>
-                  <td className="px-5 py-4 text-sm text-[var(--foreground)]">{row.lastEvent}</td>
+                  <td className="px-5 py-4 text-sm text-[var(--foreground)]">{e.imputabilidad}</td>
                   <td className="px-5 py-4">
                     <Link
                       href="/eventos-adversos"
@@ -237,6 +220,13 @@ export function DashboardContent() {
                   </td>
                 </tr>
               ))}
+              {recentes.length === 0 && (
+                <tr>
+                  <td colSpan={5} className="px-5 py-10 text-center text-sm text-[var(--muted-foreground)]">
+                    No hay casos recientes.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

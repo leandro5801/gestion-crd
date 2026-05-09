@@ -1,8 +1,11 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
-import { mockEstudios, mockSitiosClinicos } from '@/lib/mock-data'
+import { pacientesApi } from '@/lib/api/pacientes'
+import { useEstudios } from '@/lib/api/estudios'
+import { useSitiosClinicos } from '@/lib/api/sitios-clinicos'
+import type { Sexo, ColorPiel } from '@/lib/types'
 
 interface Props {
   open: boolean
@@ -14,30 +17,46 @@ export function NuevoPacienteModal({ open, onClose }: Props) {
     iniciales: '',
     codigoInclusion: '',
     edad: '',
-    sexo: '',
+    sexo: '' as Sexo | '',
+    colorPiel: '' as ColorPiel | '',
     pesoKg: '',
     tallaCm: '',
     fechaInclusion: '',
-    estudio: '',
-    sitioClinico: '',
-    diagnosticos: '',
+    estudioId: '',
+    sitioClinicoId: '',
   })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const { items: estudios } = useEstudios({ pagination: { pageSize: 100 } })
+  const { items: sitios } = useSitiosClinicos({ pagination: { pageSize: 100 } })
 
   const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
-
-  // Filter sites based on selected study (sites with estudiosActivos > 0 only)
-  const filteredSites = useMemo(() => {
-    return mockSitiosClinicos.filter((s) => s.estado === 'Activo' && s.estudiosActivos > 0)
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    // TODO: POST /api/pacientes con el payload `form`
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    onClose()
+    setError(null)
+    try {
+      await pacientesApi.create({
+        iniciales: form.iniciales.toUpperCase(),
+        codigoInclusion: form.codigoInclusion,
+        edad: parseInt(form.edad, 10),
+        sexo: form.sexo as Sexo,
+        colorPiel: form.colorPiel as ColorPiel || undefined,
+        pesoKg: form.pesoKg ? parseFloat(form.pesoKg) : undefined,
+        tallaCm: form.tallaCm ? parseFloat(form.tallaCm) : undefined,
+        fechaInclusion: form.fechaInclusion,
+        estudio: form.estudioId ? { id: parseInt(form.estudioId, 10) } as never : undefined,
+        sitioClinico: form.sitioClinicoId ? { id: parseInt(form.sitioClinicoId, 10) } as never : undefined,
+      })
+      setForm({ iniciales: '', codigoInclusion: '', edad: '', sexo: '', colorPiel: '', pesoKg: '', tallaCm: '', fechaInclusion: '', estudioId: '', sitioClinicoId: '' })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el paciente')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -74,6 +93,11 @@ export function NuevoPacienteModal({ open, onClose }: Props) {
         </>
       }
     >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <form id="nuevo-paciente-form" onSubmit={handleSubmit} className="flex flex-col gap-5">
         {/* Identification */}
         <div>
@@ -133,6 +157,27 @@ export function NuevoPacienteModal({ open, onClose }: Props) {
                 <option value="F">Femenino</option>
               </select>
             </FormField>
+            <FormField label="Color de Piel">
+              <select
+                className={selectCls}
+                value={form.colorPiel}
+                onChange={(e) => update('colorPiel', e.target.value)}
+              >
+                <option value="">Seleccionar...</option>
+                {['Blanca', 'Mestiza', 'Negra', 'Amarilla'].map((c) => (
+                  <option key={c}>{c}</option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Fecha de Inclusión" required>
+              <input
+                type="date"
+                className={inputCls}
+                value={form.fechaInclusion}
+                onChange={(e) => update('fechaInclusion', e.target.value)}
+                required
+              />
+            </FormField>
             <FormField label="Peso (kg)">
               <input
                 type="number"
@@ -164,53 +209,31 @@ export function NuevoPacienteModal({ open, onClose }: Props) {
             <FormField label="Estudio Clínico" required className="col-span-1 sm:col-span-2">
               <select
                 className={selectCls}
-                value={form.estudio}
-                onChange={(e) => {
-                  update('estudio', e.target.value)
-                  // Clear sitio when study changes
-                  if (form.sitioClinico) update('sitioClinico', '')
-                }}
+                value={form.estudioId}
+                onChange={(e) => update('estudioId', e.target.value)}
                 required
               >
                 <option value="">Seleccionar estudio...</option>
-                {mockEstudios.filter((e) => e.estado === 'Activo').map((e) => (
-                  <option key={e.id} value={e.codigoProtocolo}>
+                {estudios.map((e) => (
+                  <option key={e.id} value={String(e.id)}>
                     {e.codigoProtocolo} — {e.titulo}
                   </option>
                 ))}
               </select>
             </FormField>
-            <FormField label="Sitio Clínico" required>
+            <FormField label="Sitio Clínico" className="col-span-1 sm:col-span-2">
               <select
                 className={selectCls}
-                value={form.sitioClinico}
-                onChange={(e) => update('sitioClinico', e.target.value)}
-                required
+                value={form.sitioClinicoId}
+                onChange={(e) => update('sitioClinicoId', e.target.value)}
               >
-                <option value="">Seleccionar sitio activo...</option>
-                {filteredSites.map((s) => (
-                  <option key={s.id} value={s.codigo}>
+                <option value="">Seleccionar sitio...</option>
+                {sitios.map((s) => (
+                  <option key={s.id} value={String(s.id)}>
                     {s.codigo} — {s.nombre}
                   </option>
                 ))}
               </select>
-            </FormField>
-            <FormField label="Fecha de Inclusión" required>
-              <input
-                type="date"
-                className={inputCls}
-                value={form.fechaInclusion}
-                onChange={(e) => update('fechaInclusion', e.target.value)}
-                required
-              />
-            </FormField>
-            <FormField label="Diagnósticos Previos (APP)" className="col-span-1 sm:col-span-2">
-              <input
-                className={inputCls}
-                placeholder="Ej: HTA, DM Tipo 2 (separados por coma)"
-                value={form.diagnosticos}
-                onChange={(e) => update('diagnosticos', e.target.value)}
-              />
             </FormField>
           </div>
         </div>

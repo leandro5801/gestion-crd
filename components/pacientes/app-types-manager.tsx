@@ -1,22 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Plus, Tags, Pencil, Check, Trash2 } from 'lucide-react'
-
-// Default APP types seeded from common clinical antecedents
-const DEFAULT_TYPES = [
-  { id: 1, label: 'HTA', description: 'Hipertensión arterial', color: 'bg-blue-100 text-blue-700' },
-  { id: 2, label: 'DM TIPO 2', description: 'Diabetes Mellitus Tipo 2', color: 'bg-amber-100 text-amber-700' },
-  { id: 3, label: 'EPOC', description: 'Enfermedad Pulmonar Obstructiva Crónica', color: 'bg-orange-100 text-orange-700' },
-  { id: 4, label: 'INS. RENAL', description: 'Insuficiencia Renal Crónica', color: 'bg-red-100 text-red-700' },
-  { id: 5, label: 'CAR. PULMONAR', description: 'Carcinoma Pulmonar', color: 'bg-purple-100 text-purple-700' },
-  { id: 6, label: 'MELANOMA', description: 'Melanoma', color: 'bg-slate-100 text-slate-700' },
-]
+import { useApps, appsApi } from '@/lib/api/apps'
 
 type AppType = {
-  id: number
+  id?: string | number
   label: string
-  description: string
+  description?: string
   color: string
 }
 
@@ -37,15 +28,28 @@ interface Props {
 }
 
 export function AppTypesManager({ open, onClose }: Props) {
-  const [types, setTypes] = useState<AppType[]>(DEFAULT_TYPES)
+  const { data: apiTypes = [] } = useApps()
+  const [types, setTypes] = useState<AppType[]>([])
   const [newLabel, setNewLabel] = useState('')
   const [newDesc, setNewDesc] = useState('')
   const [newColor, setNewColor] = useState(COLOR_OPTIONS[0].value)
-  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editingId, setEditingId] = useState<string | number | null>(null)
   const [editLabel, setEditLabel] = useState('')
   const [editDesc, setEditDesc] = useState('')
   const [editColor, setEditColor] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Sync API data with local state
+  useEffect(() => {
+    if (apiTypes.length > 0) {
+      setTypes(apiTypes.map((t) => ({
+        id: t.id,
+        label: t.titulo || t.label,
+        description: t.descripcion || t.description || '',
+        color: t.color || 'bg-blue-100 text-blue-700',
+      })))
+    }
+  }, [apiTypes])
 
   if (!open) return null
 
@@ -53,12 +57,18 @@ export function AppTypesManager({ open, onClose }: Props) {
     const label = newLabel.trim().toUpperCase()
     if (!label) return
     setSaving(true)
-    // TODO: POST /api/app-types — { data: { label, description: newDesc, color: newColor } }
-    await new Promise((r) => setTimeout(r, 400))
-    setTypes([...types, { id: Date.now(), label, description: newDesc.trim(), color: newColor }])
-    setNewLabel('')
-    setNewDesc('')
-    setNewColor(COLOR_OPTIONS[0].value)
+    try {
+      await appsApi.create({
+        titulo: label,
+        descripcion: newDesc.trim(),
+        color: newColor,
+      })
+      setNewLabel('')
+      setNewDesc('')
+      setNewColor(COLOR_OPTIONS[0].value)
+    } catch (error) {
+      console.error('Error adding app type:', error)
+    }
     setSaving(false)
   }
 
@@ -69,18 +79,29 @@ export function AppTypesManager({ open, onClose }: Props) {
     setEditColor(t.color)
   }
 
-  const handleSaveEdit = async (id: number) => {
+  const handleSaveEdit = async (id: string | number | undefined) => {
+    if (!id) return
     setSaving(true)
-    // TODO: PUT /api/app-types/:id — { data: { label: editLabel, description: editDesc, color: editColor } }
-    await new Promise((r) => setTimeout(r, 400))
-    setTypes(types.map((t) => t.id === id ? { ...t, label: editLabel.toUpperCase(), description: editDesc, color: editColor } : t))
-    setEditingId(null)
+    try {
+      await appsApi.update(id as string, {
+        titulo: editLabel.toUpperCase(),
+        descripcion: editDesc,
+        color: editColor,
+      })
+      setEditingId(null)
+    } catch (error) {
+      console.error('Error updating app type:', error)
+    }
     setSaving(false)
   }
 
-  const handleDelete = async (id: number) => {
-    // TODO: DELETE /api/app-types/:id
-    setTypes(types.filter((t) => t.id !== id))
+  const handleDelete = async (id: string | number | undefined) => {
+    if (!id) return
+    try {
+      await appsApi.delete(id as string)
+    } catch (error) {
+      console.error('Error deleting app type:', error)
+    }
   }
 
   return (
