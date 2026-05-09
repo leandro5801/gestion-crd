@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { X, Edit2, Save, AlertTriangle, CheckCircle } from 'lucide-react'
-import { mockPacientes, mockEstudios, type EventoAdverso } from '@/lib/mock-data'
+import { type EventoAdverso } from '@/lib/mock-data'
+import { usePacientes } from '@/lib/api/pacientes'
+import { useEstudios } from '@/lib/api/estudios'
+import { updateEventoAdverso } from '@/lib/api/eventos-adversos'
 
 const selectCls = 'w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white focus:outline-none focus:border-[var(--brand-teal)] transition-colors'
 const inputCls = 'w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[var(--brand-teal)] transition-colors'
@@ -30,6 +33,8 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [form, setForm] = useState<EventoAdverso | null>(null)
+  const { data: pacientes = [] } = usePacientes()
+  const { data: estudios = [] } = useEstudios()
 
   useEffect(() => {
     if (evento) { setForm({ ...evento }); setEditing(false); setSaved(false) }
@@ -41,17 +46,21 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
 
   // When patient is changed, auto-fill estudio
   const handlePacienteChange = (codigoInclusion: string) => {
-    const paciente = mockPacientes.find((p) => p.codigoInclusion === codigoInclusion)
-    const estudio = paciente ? mockEstudios.find((e) => e.codigoProtocolo === paciente.estudio) : null
+    const paciente = pacientes.find((p) => p.codigoInclusion === codigoInclusion)
+    const estudio = paciente ? estudios.find((e) => e.codigoProtocolo === paciente.estudio) : null
     setForm((f) => f ? { ...f, pacienteId: codigoInclusion, estudio: estudio?.codigoProtocolo ?? f.estudio } : f)
   }
 
   const handleSave = async () => {
     setSaving(true)
-    // TODO: PUT /api/eventos-adversos/:id — { data: form }
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false); setSaved(true); setEditing(false)
-    setTimeout(() => setSaved(false), 2500)
+    try {
+      await updateEventoAdverso(evento.id, form)
+      setSaving(false); setSaved(true); setEditing(false)
+      setTimeout(() => setSaved(false), 2500)
+    } catch (error) {
+      console.error('Error saving evento:', error)
+      setSaving(false)
+    }
   }
 
   const TextField = ({ label, fkey, type = 'text' }: { label: string; fkey: keyof EventoAdverso; type?: string }) => (
@@ -141,7 +150,7 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
               {editing ? (
                 <select value={form.pacienteId} onChange={(e) => handlePacienteChange(e.target.value)} className={selectCls}>
                   <option value="">Seleccionar paciente...</option>
-                  {mockPacientes.map((p) => (
+                  {pacientes.map((p) => (
                     <option key={p.id} value={p.codigoInclusion}>{p.codigoInclusion} — {p.iniciales}</option>
                   ))}
                 </select>
