@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
+import { Modal, FormField, inputCls } from '@/components/ui/modal'
+import { sitiosApi } from '@/lib/api/sitios-clinicos'
 
 interface Props {
   open: boolean
@@ -12,24 +13,28 @@ export function NuevoSitioModal({ open, onClose }: Props) {
   const [form, setForm] = useState({
     nombre: '',
     codigo: '',
-    tipo: '',
-    ubicacion: '',
-    investigadorPrincipal: '',
-    email: '',
-    telefono: '',
-    estado: 'Activo',
   })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    // TODO: POST /api/sitios-clinicos con el payload `form`
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    onClose()
+    setError(null)
+    try {
+      await sitiosApi.create({
+        nombre: form.nombre,
+        codigo: form.codigo.toUpperCase(),
+      })
+      setForm({ nombre: '', codigo: '' })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo registrar el sitio')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -38,7 +43,7 @@ export function NuevoSitioModal({ open, onClose }: Props) {
       onClose={onClose}
       title="Registrar Nuevo Sitio Clínico"
       subtitle="Incorporar un nuevo centro de investigación al estudio"
-      size="lg"
+      size="md"
       footer={
         <>
           <button
@@ -66,8 +71,13 @@ export function NuevoSitioModal({ open, onClose }: Props) {
         </>
       }
     >
-      <form id="nuevo-sitio-form" onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
-        <FormField label="Nombre del Centro" required className="col-span-2">
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
+      <form id="nuevo-sitio-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <FormField label="Nombre del Centro" required>
           <input
             className={inputCls}
             placeholder="Ej: Hospital Universitario La Paz"
@@ -85,77 +95,6 @@ export function NuevoSitioModal({ open, onClose }: Props) {
             onChange={(e) => update('codigo', e.target.value.toUpperCase())}
             required
           />
-        </FormField>
-
-        <FormField label="Tipo de Centro" required>
-          <select
-            className={selectCls}
-            value={form.tipo}
-            onChange={(e) => update('tipo', e.target.value)}
-            required
-          >
-            <option value="">Seleccionar tipo...</option>
-            {[
-              'General Hospital',
-              'University Hospital',
-              'Research Institute',
-              'Private Clinic',
-              'University Poly',
-            ].map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Dirección / Ubicación" required className="col-span-2">
-          <input
-            className={inputCls}
-            placeholder="Calle, número, ciudad"
-            value={form.ubicacion}
-            onChange={(e) => update('ubicacion', e.target.value)}
-            required
-          />
-        </FormField>
-
-        <FormField label="Investigador Principal" required className="col-span-2">
-          <input
-            className={inputCls}
-            placeholder="Dr./Dra. Nombre Apellido"
-            value={form.investigadorPrincipal}
-            onChange={(e) => update('investigadorPrincipal', e.target.value)}
-            required
-          />
-        </FormField>
-
-        <FormField label="Correo electrónico">
-          <input
-            type="email"
-            className={inputCls}
-            placeholder="pi@hospital.com"
-            value={form.email}
-            onChange={(e) => update('email', e.target.value)}
-          />
-        </FormField>
-
-        <FormField label="Teléfono de contacto">
-          <input
-            type="tel"
-            className={inputCls}
-            placeholder="+34 91 000 0000"
-            value={form.telefono}
-            onChange={(e) => update('telefono', e.target.value)}
-          />
-        </FormField>
-
-        <FormField label="Estado Inicial">
-          <select
-            className={selectCls}
-            value={form.estado}
-            onChange={(e) => update('estado', e.target.value)}
-          >
-            <option>Activo</option>
-            <option>Pendiente</option>
-          </select>
         </FormField>
       </form>
     </Modal>

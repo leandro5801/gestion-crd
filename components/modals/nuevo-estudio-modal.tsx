@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
+import { estudiosApi } from '@/lib/api/estudios'
 
 interface Props {
   open: boolean
@@ -13,22 +14,33 @@ export function NuevoEstudioModal({ open, onClose }: Props) {
     codigoProtocolo: '',
     titulo: '',
     medicamento: '',
-    fase: '',
     fechaInicio: '',
     fechaFinVigilancia: '',
-    pi: '',
   })
   const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    // TODO: POST /api/estudios con el payload `form`
-    await new Promise((r) => setTimeout(r, 800))
-    setSaving(false)
-    onClose()
+    setError(null)
+    try {
+      await estudiosApi.create({
+        codigoProtocolo: form.codigoProtocolo,
+        titulo: form.titulo,
+        medicamento: form.medicamento,
+        fechaInicio: form.fechaInicio,
+        fechaFinVigilancia: form.fechaFinVigilancia,
+      })
+      setForm({ codigoProtocolo: '', titulo: '', medicamento: '', fechaInicio: '', fechaFinVigilancia: '' })
+      onClose()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'No se pudo crear el estudio')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -65,6 +77,11 @@ export function NuevoEstudioModal({ open, onClose }: Props) {
         </>
       }
     >
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+          {error}
+        </div>
+      )}
       <form id="nuevo-estudio-form" onSubmit={handleSubmit} className="grid grid-cols-2 gap-4">
         <FormField label="Código de Protocolo" required className="col-span-1">
           <input
@@ -76,31 +93,7 @@ export function NuevoEstudioModal({ open, onClose }: Props) {
           />
         </FormField>
 
-        <FormField label="Fase" required className="col-span-1">
-          <select
-            className={selectCls}
-            value={form.fase}
-            onChange={(e) => update('fase', e.target.value)}
-            required
-          >
-            <option value="">Seleccionar fase...</option>
-            {['Fase I', 'Fase II', 'Fase III', 'Fase IV', 'Post-mercado'].map((f) => (
-              <option key={f}>{f}</option>
-            ))}
-          </select>
-        </FormField>
-
-        <FormField label="Título del Estudio" required className="col-span-2">
-          <input
-            className={inputCls}
-            placeholder="Descripción completa del protocolo..."
-            value={form.titulo}
-            onChange={(e) => update('titulo', e.target.value)}
-            required
-          />
-        </FormField>
-
-        <FormField label="Medicamento / INN" required className="col-span-2">
+        <FormField label="Medicamento / INN" required className="col-span-1">
           <input
             className={inputCls}
             placeholder="Ej: Enoxaparina 40mg"
@@ -110,12 +103,12 @@ export function NuevoEstudioModal({ open, onClose }: Props) {
           />
         </FormField>
 
-        <FormField label="Investigador Principal" required className="col-span-2">
+        <FormField label="Título del Estudio" required className="col-span-2">
           <input
             className={inputCls}
-            placeholder="Nombre completo del PI"
-            value={form.pi}
-            onChange={(e) => update('pi', e.target.value)}
+            placeholder="Descripción completa del protocolo..."
+            value={form.titulo}
+            onChange={(e) => update('titulo', e.target.value)}
             required
           />
         </FormField>
