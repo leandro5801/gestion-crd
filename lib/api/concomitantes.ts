@@ -13,3 +13,6 @@ export const concomitantesApi = createCrud<TratamientoConcomitante>({
 
 export const useConcomitantes = concomitantesApi.useList
 export const useConcomitante = concomitantesApi.useOne
+export const updateTratamientoConcomitante = concomitantesApi.update
+export const createTratamientoConcomitante = concomitantesApi.create
+export const deleteTratamientoConcomitante = concomitantesApi.delete

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X, Edit2, Save, Stethoscope, CheckCircle } from 'lucide-react'
-import { type TratamientoConcomitante } from '@/lib/mock-data'
+import { type TratamientoConcomitante } from '@/lib/types'
 import { usePacientes } from '@/lib/api/pacientes'
 import { useEstudios } from '@/lib/api/estudios'
 import { updateTratamientoConcomitante } from '@/lib/api/concomitantes'

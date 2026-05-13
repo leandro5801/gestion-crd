@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { X, Edit2, Save, AlertTriangle, CheckCircle } from 'lucide-react'
-import { type EventoAdverso } from '@/lib/mock-data'
+import { type EventoAdverso } from '@/lib/types'
 import { usePacientes } from '@/lib/api/pacientes'
 import { useEstudios } from '@/lib/api/estudios'
 import { updateEventoAdverso } from '@/lib/api/eventos-adversos'

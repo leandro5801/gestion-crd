@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { ShieldCheck, Eye, EyeOff, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Lock, Mail, ArrowRight, AlertCircle } from 'lucide-react'
 import { useAuth } from '@/components/auth/auth-provider'
 
 export default function LoginPage() {
@@ -51,12 +52,10 @@ export default function LoginPage() {
         <div className="absolute -top-20 -right-20 w-72 h-72 rounded-full bg-white/5" />
 
         <div className="relative flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-white/20 flex items-center justify-center">
-            <ShieldCheck className="w-6 h-6 text-white" />
-          </div>
+          <Image src="/alca-logo.png" alt="Alca Laboratorios" width={44} height={44} className="object-contain" />
           <div>
-            <p className="font-bold text-lg text-white leading-tight">Clinical Curator</p>
-            <p className="text-xs text-white/70 uppercase tracking-widest">Pharmacovigilance Hub</p>
+            <p className="font-bold text-lg text-white leading-tight">Alca Laboratorios</p>
+            <p className="text-xs text-white/70 uppercase tracking-widest">Farmacovigilancia</p>
           </div>
         </div>
 
@@ -97,12 +96,10 @@ export default function LoginPage() {
       {/* Right panel */}
       <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
         <div className="flex lg:hidden items-center gap-2.5 mb-10">
-          <div className="w-10 h-10 rounded-xl bg-[var(--brand-teal)] flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
+          <Image src="/alca-logo.png" alt="Alca Laboratorios" width={40} height={40} className="object-contain" />
           <div>
-            <p className="font-bold text-base text-[var(--foreground)]">Clinical Curator</p>
-            <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-widest">Pharmacovigilance Hub</p>
+            <p className="font-bold text-base text-[var(--foreground)]">Alca Laboratorios</p>
+            <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-widest">Farmacovigilancia</p>
           </div>
         </div>
 

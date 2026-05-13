@@ -4,31 +4,31 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Clinical Curator brand palette */
-  --brand-teal: #0d7377;
-  --brand-teal-light: #14a1a6;
-  --brand-teal-dark: #0a5c60;
-  --brand-teal-muted: #e6f4f5;
+  /* Alca Laboratorios brand palette - teal/cyan blue */
+  --brand-teal: #1b9fba;
+  --brand-teal-light: #2db9d0;
+  --brand-teal-dark: #158b9d;
+  --brand-teal-muted: #e0f4f8;
 
-  --background: #f4f6f9;
+  --background: #f8fafb;
   --foreground: #1a2332;
   --card: #ffffff;
   --card-foreground: #1a2332;
   --popover: #ffffff;
   --popover-foreground: #1a2332;
-  --primary: #0d7377;
+  --primary: #1b9fba;
   --primary-foreground: #ffffff;
-  --secondary: #e6f4f5;
-  --secondary-foreground: #0d7377;
+  --secondary: #e0f4f8;
+  --secondary-foreground: #1b9fba;
   --muted: #f0f3f7;
   --muted-foreground: #6b7a8d;
-  --accent: #e6f4f5;
-  --accent-foreground: #0d7377;
+  --accent: #e0f4f8;
+  --accent-foreground: #1b9fba;
   --destructive: #dc2626;
   --destructive-foreground: #ffffff;
   --border: #e2e8f0;
   --input: #e2e8f0;
-  --ring: #0d7377;
+  --ring: #1b9fba;
 
   /* Severity colors */
   --severe: #ef4444;
@@ -47,23 +47,23 @@
   --status-inactive-bg: #fef2f2;
   --status-pending: #6366f1;
   --status-pending-bg: #eef2ff;
-  --status-complete: #0d7377;
-  --status-complete-bg: #e6f4f5;
+  --status-complete: #1b9fba;
+  --status-complete-bg: #e0f4f8;
 
   --radius: 0.5rem;
 
   --sidebar: #ffffff;
   --sidebar-foreground: #1a2332;
-  --sidebar-primary: #0d7377;
+  --sidebar-primary: #1b9fba;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e6f4f5;
-  --sidebar-accent-foreground: #0d7377;
+  --sidebar-accent: #e0f4f8;
+  --sidebar-accent-foreground: #1b9fba;
   --sidebar-border: #e2e8f0;
-  --sidebar-ring: #0d7377;
+  --sidebar-ring: #1b9fba;
 
-  --chart-1: #0d7377;
-  --chart-2: #14a1a6;
-  --chart-3: #94c5c7;
+  --chart-1: #1b9fba;
+  --chart-2: #2db9d0;
+  --chart-3: #7dd3df;
   --chart-4: #f59e0b;
   --chart-5: #ef4444;
 }
