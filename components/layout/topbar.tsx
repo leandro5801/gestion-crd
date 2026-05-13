@@ -23,8 +23,9 @@ export function Topbar({
   return (
     <header className="h-14 bg-white border-b border-[var(--border)] flex items-center px-6 gap-4 flex-shrink-0">
       {/* Brand text */}
-      <div className="flex items-center gap-2 mr-2">
-        <span className="font-bold text-base text-[var(--foreground)]">Clinical Curator</span>
+      <div className="flex items-center gap-2.5 mr-2">
+        <Image src="/alca-logo.png" alt="Alca Laboratorios" width={32} height={32} className="object-contain" />
+        <span className="font-bold text-base text-[var(--foreground)]">Alca Laboratorios</span>
       </div>
 
       {/* Current study pill */}

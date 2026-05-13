@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
@@ -15,7 +16,6 @@ import {
   HelpCircle,
   LogOut,
   Plus,
-  ShieldCheck,
   Menu,
   X,
 } from 'lucide-react'
@@ -54,13 +54,11 @@ function SidebarContent({ onClose }: { onClose?: () => void }) {
       {/* Brand */}
       <div className="px-5 py-5 border-b border-[var(--sidebar-border)] flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-[var(--brand-teal)] flex items-center justify-center flex-shrink-0">
-            <ShieldCheck className="w-5 h-5 text-white" />
-          </div>
+          <Image src="/alca-logo.png" alt="Alca Laboratorios" width={36} height={36} className="object-contain flex-shrink-0" />
           <div>
-            <p className="font-bold text-sm text-[var(--foreground)] leading-tight">PV Manager</p>
+            <p className="font-bold text-sm text-[var(--foreground)] leading-tight">Alca</p>
             <p className="text-[10px] text-[var(--muted-foreground)] uppercase tracking-widest leading-tight">
-              Precision Safety
+              Farmacovigilancia
             </p>
           </div>
         </div>

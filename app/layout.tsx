@@ -11,13 +11,13 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Clinical Curator — Pharmacovigilance Hub',
+  title: 'Alca Laboratorios — Farmacovigilancia',
   description: 'Plataforma integral de farmacovigilancia clínica y gestión de estudios.',
   generator: 'v0.app',
 }
 
 export const viewport: Viewport = {
-  themeColor: '#0d7377',
+  themeColor: '#1b9fba',
   width: 'device-width',
   initialScale: 1,
 }

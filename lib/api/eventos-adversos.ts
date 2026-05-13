@@ -16,3 +16,6 @@ export const eventosAdversosApi = createCrud<EventoAdverso>({
 
 export const useEventosAdversos = eventosAdversosApi.useList
 export const useEventoAdverso = eventosAdversosApi.useOne
+export const updateEventoAdverso = eventosAdversosApi.update
+export const createEventoAdverso = eventosAdversosApi.create
+export const deleteEventoAdverso = eventosAdversosApi.delete
