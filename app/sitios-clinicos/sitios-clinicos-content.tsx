@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, FileDown, MapPin, Globe, Building2, Eye, Plus } from 'lucide-react'
+import { Search, FileDown, MapPin, Globe, Building2, Eye, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { DataPagination } from '@/components/ui/data-pagination'
 import { NuevoSitioModal } from '@/components/modals/nuevo-sitio-modal'
 import { VerEditarSitioModal } from '@/components/modals/ver-editar-sitio-modal'
-import { useSitiosClinicos } from '@/lib/api/sitios-clinicos'
+import { useSitiosClinicos, deleteSitioClinico } from '@/lib/api/sitios-clinicos'
 import type { SitioClinico } from '@/lib/types'
 
 export function SitiosClinicosContent() {
@@ -15,6 +15,7 @@ export function SitiosClinicosContent() {
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<SitioClinico | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const { items: sitios, meta, isLoading, mutate } = useSitiosClinicos({
     pagination: { page, pageSize: 10 },
@@ -29,6 +30,20 @@ export function SitiosClinicosContent() {
   })
 
   const totalSitios = meta?.total ?? 0
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar este sitio clínico? Esta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await deleteSitioClinico(id)
+      await mutate()
+    } catch (error) {
+      console.error('Error deleting sitio:', error)
+      alert('Error al eliminar el sitio clínico')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <>
@@ -134,13 +149,23 @@ export function SitiosClinicosContent() {
                       {s.pacientes?.length ?? 0}
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        onClick={() => setSelected(s)}
-                        className="flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-teal)] hover:underline"
-                      >
-                        <Eye className="w-4 h-4" />
-                        Ver Detalles
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelected(s)}
+                          className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                          title="Ver / Editar"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(s.id)}
+                          disabled={deletingId === s.id}
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

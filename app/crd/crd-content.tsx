@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, FileDown, FileText, CheckCircle, XCircle, Clock, Eye, Plus } from 'lucide-react'
+import { Search, FileDown, FileText, CheckCircle, XCircle, Clock, Eye, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataPagination } from '@/components/ui/data-pagination'
 import { NuevoCRDModal } from '@/components/modals/nuevo-crd-modal'
 import { VerEditarCRDModal } from '@/components/modals/ver-editar-crd-modal'
-import { useCrds } from '@/lib/api/crds'
+import { useCrds, deleteCrd } from '@/lib/api/crds'
 import type { CRD } from '@/lib/types'
 
 export function CRDContent() {
@@ -17,6 +17,7 @@ export function CRDContent() {
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<CRD | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const filters: Record<string, unknown> = {}
   if (estado !== 'Todos') filters.estado = { $eq: estado }
@@ -31,6 +32,20 @@ export function CRDContent() {
   const completos = crds.filter((c) => c.estado === 'Completo').length
   const bloqueados = crds.filter((c) => c.estado === 'Bloqueado').length
   const consentidos = crds.filter((c) => c.consentimientoFirmado).length
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar este CRD? Esta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await deleteCrd(id)
+      await mutate()
+    } catch (error) {
+      console.error('Error deleting CRD:', error)
+      alert('Error al eliminar el CRD')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <>
@@ -189,13 +204,23 @@ export function CRDContent() {
                         <StatusBadge status={c.estado} />
                       </td>
                       <td className="px-5 py-4">
-                        <button
-                          onClick={() => setSelected(c)}
-                          className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
-                          title="Ver / Editar"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelected(c)}
+                            className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                            title="Ver / Editar"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(c.id)}
+                            disabled={deletingId === c.id}
+                            className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

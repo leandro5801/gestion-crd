@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, FileDown, Stethoscope, Activity, Plus, Eye } from 'lucide-react'
+import { Search, FileDown, Stethoscope, Activity, Plus, Eye, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { DataPagination } from '@/components/ui/data-pagination'
 import { NuevoConcomitanteModal } from '@/components/modals/nuevo-concomitante-modal'
 import { VerEditarConcomitanteModal } from '@/components/modals/ver-editar-concomitante-modal'
-import { useConcomitantes } from '@/lib/api/concomitantes'
+import { useConcomitantes, deleteTratamientoConcomitante } from '@/lib/api/concomitantes'
 import type { TratamientoConcomitante } from '@/lib/types'
 
 export function TratamientoConcomitanteContent() {
@@ -15,6 +15,7 @@ export function TratamientoConcomitanteContent() {
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<TratamientoConcomitante | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const filters: Record<string, unknown> = search
     ? { medicamento: { $containsi: search } }
@@ -26,6 +27,20 @@ export function TratamientoConcomitanteContent() {
   })
 
   const totalRegistros = meta?.total ?? 0
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar este tratamiento concomitante? Esta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await deleteTratamientoConcomitante(id)
+      await mutate()
+    } catch (error) {
+      console.error('Error deleting concomitante:', error)
+      alert('Error al eliminar el tratamiento concomitante')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <>
@@ -156,13 +171,23 @@ export function TratamientoConcomitanteContent() {
                       <td className="px-5 py-4 text-sm text-[var(--foreground)]">{c.via ?? '—'}</td>
                       <td className="px-5 py-4 text-sm text-[var(--foreground)]">{c.dosisDiaria ?? '—'}</td>
                       <td className="px-5 py-4">
-                        <button
-                          onClick={() => setSelected(c)}
-                          className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
-                          title="Ver / Editar"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelected(c)}
+                            className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                            title="Ver / Editar"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(c.id)}
+                            disabled={deletingId === c.id}
+                            className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

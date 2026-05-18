@@ -11,3 +11,6 @@ export const sitiosApi = createCrud<SitioClinico>({
 
 export const useSitiosClinicos = sitiosApi.useList
 export const useSitioClinico = sitiosApi.useOne
+export const createSitioClinico = sitiosApi.create
+export const updateSitioClinico = sitiosApi.update
+export const deleteSitioClinico = sitiosApi.delete
