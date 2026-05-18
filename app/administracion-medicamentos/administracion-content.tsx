@@ -1,53 +1,107 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Search, FileDown, Pill, CheckCircle2, XCircle, Plus, Eye, Trash2 } from 'lucide-react'
-import { PageHeader } from '@/components/ui/page-header'
-import { StatCard } from '@/components/ui/stat-card'
-import { DataPagination } from '@/components/ui/data-pagination'
-import { NuevaAdministracionModal } from '@/components/modals/nueva-administracion-modal'
-import { VerEditarAdministracionModal } from '@/components/modals/ver-editar-administracion-modal'
-import { useAdministraciones, deleteAdministracion } from '@/lib/api/administraciones'
-import type { AdministracionMedicamento } from '@/lib/types'
+import { useState } from "react";
+import {
+  Search,
+  FileDown,
+  Pill,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  Eye,
+  Trash2,
+} from "lucide-react";
+
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { DataPagination } from "@/components/ui/data-pagination";
+
+import { NuevaAdministracionModal } from "@/components/modals/nueva-administracion-modal";
+import { VerEditarAdministracionModal } from "@/components/modals/ver-editar-administracion-modal";
+import { ConfirmarEliminacionModal } from "@/components/modals/confirmar-eliminacion-modal";
+
+import {
+  useAdministraciones,
+  deleteAdministracion,
+} from "@/lib/api/administraciones";
+import type { AdministracionMedicamento, ID } from "@/lib/types";
 
 export function AdministracionContent() {
-  const [search, setSearch] = useState('')
-  const [via, setVia] = useState('Todos')
-  const [page, setPage] = useState(1)
-  const [showModal, setShowModal] = useState(false)
-  const [selected, setSelected] = useState<AdministracionMedicamento | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [search, setSearch] = useState("");
+  const [via, setVia] = useState("Todos");
+  const [page, setPage] = useState(1);
 
-  const filters: Record<string, unknown> = {}
-  if (via !== 'Todos') filters.via = { $eq: via }
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState<AdministracionMedicamento | null>(
+    null,
+  );
 
-  const { items: admins, meta, isLoading, mutate } = useAdministraciones({
+  const [deletingId, setDeletingId] = useState<ID | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const filters: Record<string, unknown> = {};
+  if (via !== "Todos") filters.via = { $eq: via };
+
+  const {
+    items: admins,
+    meta,
+    isLoading,
+    mutate,
+  } = useAdministraciones({
     pagination: { page, pageSize: 10 },
     filters: Object.keys(filters).length ? filters : undefined,
-  })
+  });
 
-  const totalAdm = meta?.total ?? 0
-  const byViaSC = admins.filter((a) => a.via === 'SC').length
-  const byViaIV = admins.filter((a) => a.via === 'IV').length
+  const totalAdm = meta?.total ?? 0;
+  const byViaSC = admins.filter((a) => a.via === "SC").length;
+  const byViaIV = admins.filter((a) => a.via === "IV").length;
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(`¿Está seguro de que desea eliminar este registro de administración? Esta acción no se puede deshacer.`)) return
-    setDeletingId(id)
-    try {
-      await deleteAdministracion(id)
-      await mutate()
-    } catch (error) {
-      console.error('Error deleting administracion:', error)
-      alert('Error al eliminar el registro')
-    } finally {
-      setDeletingId(null)
-    }
-  }
+  const handleDelete = (id: ID) => {
+    setDeletingId(id);
+    setDeleteOpen(true);
+  };
 
   return (
     <>
-      <NuevaAdministracionModal open={showModal} onClose={() => { setShowModal(false); mutate() }} />
-      <VerEditarAdministracionModal admin={selected} onClose={() => { setSelected(null); mutate() }} />
+      <NuevaAdministracionModal
+        open={showModal}
+        onClose={() => {
+          setShowModal(false);
+          mutate();
+        }}
+      />
+      <VerEditarAdministracionModal
+        admin={selected}
+        onClose={() => {
+          setSelected(null);
+          mutate();
+        }}
+      />
+
+      <ConfirmarEliminacionModal
+        open={deleteOpen}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeletingId(null);
+        }}
+        onConfirm={async () => {
+          if (!deletingId) return;
+          try {
+            await deleteAdministracion(deletingId);
+            await mutate();
+          } catch (error) {
+            console.error("Error deleting administracion:", error);
+            alert("Error al eliminar el registro");
+          } finally {
+            setDeletingId(null);
+          }
+        }}
+        title="Confirmar eliminación"
+        description="Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        dangerText="Eliminar registro de administración"
+      />
+
       <div className="p-6 flex flex-col gap-6">
         <PageHeader
           title="Administración de Medicamentos"
@@ -110,7 +164,10 @@ export function AdministracionContent() {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Buscar por CRD, lote..."
                 className="w-full pl-9 pr-4 py-2.5 bg-[var(--muted)] border border-transparent rounded-lg text-sm focus:outline-none focus:border-[var(--brand-teal)] focus:bg-white transition-all placeholder:text-[var(--muted-foreground)]"
               />
@@ -121,10 +178,13 @@ export function AdministracionContent() {
               </label>
               <select
                 value={via}
-                onChange={(e) => { setVia(e.target.value); setPage(1) }}
+                onChange={(e) => {
+                  setVia(e.target.value);
+                  setPage(1);
+                }}
                 className="px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-white focus:outline-none focus:border-[var(--brand-teal)] transition-colors"
               >
-                {['Todos', 'SC', 'IV'].map((s) => (
+                {["Todos", "SC", "IV"].map((s) => (
                   <option key={s}>{s}</option>
                 ))}
               </select>
@@ -145,7 +205,16 @@ export function AdministracionContent() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  {['CRD / Paciente', 'Nº Dosis', 'Dosis (mg)', 'Vía', 'Fecha / Hora', 'Nº Lote', 'Unidades', 'Acción'].map((h) => (
+                  {[
+                    "CRD / Paciente",
+                    "Nº Dosis",
+                    "Dosis (mg)",
+                    "Vía",
+                    "Fecha / Hora",
+                    "Nº Lote",
+                    "Unidades",
+                    "Acción",
+                  ].map((h) => (
                     <th
                       key={h}
                       className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
@@ -158,85 +227,105 @@ export function AdministracionContent() {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]">
+                    <td
+                      colSpan={8}
+                      className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]"
+                    >
                       Cargando registros...
                     </td>
                   </tr>
                 )}
-                {!isLoading && admins.map((a) => {
-                  const crd = typeof a.crd === 'object' ? a.crd : null
-                  const paciente = typeof crd?.paciente === 'object' ? crd?.paciente : null
-                  return (
-                    <tr
-                      key={a.id}
-                      className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)] transition-colors"
-                    >
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-[var(--brand-teal-muted)] flex items-center justify-center flex-shrink-0">
-                            <span className="text-xs font-bold text-[var(--brand-teal)]">
-                              {paciente?.iniciales?.slice(0, 2) ?? 'CR'}
-                            </span>
+
+                {!isLoading &&
+                  admins.map((a) => {
+                    const crd = typeof a.crd === "object" ? a.crd : null;
+                    const paciente =
+                      typeof crd?.paciente === "object" ? crd?.paciente : null;
+
+                    return (
+                      <tr
+                        key={a.id}
+                        className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)] transition-colors"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full bg-[var(--brand-teal-muted)] flex items-center justify-center flex-shrink-0">
+                              <span className="text-xs font-bold text-[var(--brand-teal)]">
+                                {paciente?.iniciales?.slice(0, 2) ?? "CR"}
+                              </span>
+                            </div>
+                            <div>
+                              <p className="text-sm font-semibold text-[var(--brand-teal)]">
+                                {paciente?.codigoInclusion ??
+                                  `CRD #${crd?.id ?? a.id}`}
+                              </p>
+                              <p className="text-xs text-[var(--muted-foreground)]">
+                                {paciente?.iniciales ?? "—"}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-semibold text-[var(--brand-teal)]">
-                              {paciente?.codigoInclusion ?? `CRD #${crd?.id ?? a.id}`}
-                            </p>
-                            <p className="text-xs text-[var(--muted-foreground)]">{paciente?.iniciales ?? '—'}</p>
+                        </td>
+                        <td className="px-5 py-4 text-sm font-semibold text-[var(--foreground)]">
+                          #{a.numeroDosis}
+                        </td>
+                        <td className="px-5 py-4 text-sm font-semibold text-[var(--foreground)]">
+                          {a.dosisMg} mg
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                              a.via === "SC"
+                                ? "bg-green-50 text-green-700 border border-green-200"
+                                : "bg-blue-50 text-blue-700 border border-blue-200"
+                            }`}
+                          >
+                            {a.via}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-[var(--foreground)]">
+                          {new Date(a.fechaHora).toLocaleString("es-ES", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </td>
+                        <td className="px-5 py-4 text-sm text-[var(--muted-foreground)]">
+                          {a.numeroLote ?? "—"}
+                        </td>
+                        <td className="px-5 py-4 text-sm text-[var(--foreground)]">
+                          {a.numeroUnidades ?? "—"}
+                        </td>
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setSelected(a)}
+                              className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                              title="Ver / Editar"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(a.id)}
+                              disabled={deletingId === a.id}
+                              className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Eliminar"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-[var(--foreground)]">
-                        #{a.numeroDosis}
-                      </td>
-                      <td className="px-5 py-4 text-sm font-semibold text-[var(--foreground)]">
-                        {a.dosisMg} mg
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${a.via === 'SC' ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
-                          {a.via}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-sm text-[var(--foreground)]">
-                        {new Date(a.fechaHora).toLocaleString('es-ES', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-[var(--muted-foreground)]">
-                        {a.numeroLote ?? '—'}
-                      </td>
-                      <td className="px-5 py-4 text-sm text-[var(--foreground)]">
-                        {a.numeroUnidades ?? '—'}
-                      </td>
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setSelected(a)}
-                            className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
-                            title="Ver / Editar"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(a.id)}
-                            disabled={deletingId === a.id}
-                            className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Eliminar"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
+                        </td>
+                      </tr>
+                    );
+                  })}
+
                 {!isLoading && admins.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]">
+                    <td
+                      colSpan={8}
+                      className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]"
+                    >
                       No se encontraron registros con los filtros aplicados.
                     </td>
                   </tr>
@@ -244,13 +333,24 @@ export function AdministracionContent() {
               </tbody>
             </table>
           </div>
+
           <div className="px-5 py-4 flex items-center justify-between border-t border-[var(--border)]">
             <p className="text-sm text-[var(--muted-foreground)]">
-              Mostrando{' '}
-              <span className="font-semibold text-[var(--foreground)]">{admins.length}</span> de{' '}
-              <span className="font-semibold text-[var(--foreground)]">{totalAdm}</span> registros
+              Mostrando{" "}
+              <span className="font-semibold text-[var(--foreground)]">
+                {admins.length}
+              </span>{" "}
+              de{" "}
+              <span className="font-semibold text-[var(--foreground)]">
+                {totalAdm}
+              </span>{" "}
+              registros
             </p>
-            <DataPagination current={page} total={meta?.pageCount ?? 1} onChange={setPage} />
+            <DataPagination
+              current={page}
+              total={meta?.pageCount ?? 1}
+              onChange={setPage}
+            />
           </div>
         </div>
 
@@ -260,14 +360,18 @@ export function AdministracionContent() {
             <Pill className="w-4 h-4 text-white" />
           </div>
           <div>
-            <p className="text-sm font-semibold text-[var(--brand-teal)]">Reconciliación de Medicación — ICH E6(R2)</p>
+            <p className="text-sm font-semibold text-[var(--brand-teal)]">
+              Reconciliación de Medicación — ICH E6(R2)
+            </p>
             <p className="text-xs text-[var(--muted-foreground)] mt-0.5 leading-relaxed">
-              Cada administración debe quedar documentada con número de dosis, dosis en mg, vía y fecha/hora exacta.
-              Las administraciones vinculadas a eventos adversos se muestran en la sección de Eventos Adversos.
+              Cada administración debe quedar documentada con número de dosis,
+              dosis en mg, vía y fecha/hora exacta. Las administraciones
+              vinculadas a eventos adversos se muestran en la sección de Eventos
+              Adversos.
             </p>
           </div>
         </div>
       </div>
     </>
-  )
+  );
 }

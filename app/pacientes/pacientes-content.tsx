@@ -1,62 +1,115 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Search, FileDown, Users, TrendingUp, UserPlus, ShieldCheck, Eye, Plus, Trash2 } from 'lucide-react'
-import { PageHeader } from '@/components/ui/page-header'
-import { StatCard } from '@/components/ui/stat-card'
-import { DataPagination } from '@/components/ui/data-pagination'
-import { NuevoPacienteModal } from '@/components/modals/nuevo-paciente-modal'
-import { VerEditarPacienteModal } from '@/components/modals/ver-editar-paciente-modal'
-import { AppTypesManager } from '@/components/pacientes/app-types-manager'
-import { usePacientes, deletePaciente } from '@/lib/api/pacientes'
-import type { Paciente } from '@/lib/types'
+import { useState } from "react";
+import {
+  Search,
+  FileDown,
+  Users,
+  TrendingUp,
+  UserPlus,
+  ShieldCheck,
+  Eye,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { DataPagination } from "@/components/ui/data-pagination";
+import { NuevoPacienteModal } from "@/components/modals/nuevo-paciente-modal";
+import { VerEditarPacienteModal } from "@/components/modals/ver-editar-paciente-modal";
+import { AppTypesManager } from "@/components/pacientes/app-types-manager";
+import { ConfirmarEliminacionModal } from "@/components/modals/confirmar-eliminacion-modal";
+import { usePacientes, deletePaciente } from "@/lib/api/pacientes";
+
+import type { Paciente, ID } from "@/lib/types";
 
 export function PacientesContent() {
-  const [search, setSearch] = useState('')
-  const [sexo, setSexo] = useState('Todos')
-  const [page, setPage] = useState(1)
-  const [showModal, setShowModal] = useState(false)
-  const [selected, setSelected] = useState<Paciente | null>(null)
-  const [showAppTypes, setShowAppTypes] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [search, setSearch] = useState("");
+  const [sexo, setSexo] = useState("Todos");
+  const [page, setPage] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState<Paciente | null>(null);
+  const [showAppTypes, setShowAppTypes] = useState(false);
+  const [deletingId, setDeletingId] = useState<ID | null>(null);
 
-  const filters: Record<string, unknown> = {}
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const filters: Record<string, unknown> = {};
   if (search) {
     filters.$or = [
       { iniciales: { $containsi: search } },
       { codigoInclusion: { $containsi: search } },
-    ]
+    ];
   }
-  if (sexo !== 'Todos') filters.sexo = { $eq: sexo }
+  if (sexo !== "Todos") filters.sexo = { $eq: sexo };
 
-  const { items: pacientes, meta, isLoading, mutate } = usePacientes({
+  const {
+    items: pacientes,
+    meta,
+    isLoading,
+    mutate,
+  } = usePacientes({
     pagination: { page, pageSize: 10 },
     filters: Object.keys(filters).length ? filters : undefined,
-  })
+  });
 
-  const totalPacientes = meta?.total ?? 0
+  const totalPacientes = meta?.total ?? 0;
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(`¿Está seguro de que desea eliminar este paciente? Esta acción no se puede deshacer.`)) return
-    setDeletingId(id)
-    try {
-      await deletePaciente(id)
-      await mutate()
-    } catch (error) {
-      console.error('Error deleting paciente:', error)
-      alert('Error al eliminar el paciente')
-    } finally {
-      setDeletingId(null)
-    }
-  }
+  const handleDelete = (id: ID) => {
+    setDeletingId(id);
+    setDeleteOpen(true);
+  };
 
-  const sexoColor = { M: 'bg-blue-100 text-blue-700', F: 'bg-pink-100 text-pink-700' } as const
+  const sexoColor = {
+    M: "bg-blue-100 text-blue-700",
+    F: "bg-pink-100 text-pink-700",
+  } as const;
 
   return (
     <>
-      <NuevoPacienteModal open={showModal} onClose={() => { setShowModal(false); mutate() }} />
-      <VerEditarPacienteModal paciente={selected} onClose={() => { setSelected(null); mutate() }} />
-      <AppTypesManager open={showAppTypes} onClose={() => setShowAppTypes(false)} />
+      <NuevoPacienteModal
+        open={showModal}
+        onClose={() => {
+          setShowModal(false);
+          mutate();
+        }}
+      />
+      <VerEditarPacienteModal
+        paciente={selected}
+        onClose={() => {
+          setSelected(null);
+          mutate();
+        }}
+      />
+      <AppTypesManager
+        open={showAppTypes}
+        onClose={() => setShowAppTypes(false)}
+      />
+
+      <ConfirmarEliminacionModal
+        open={deleteOpen}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeletingId(null);
+        }}
+        onConfirm={async () => {
+          if (!deletingId) return;
+          try {
+            await deletePaciente(String(deletingId));
+            await mutate();
+          } catch (error) {
+            console.error("Error deleting paciente:", error);
+            alert("Error al eliminar el paciente");
+          } finally {
+            setDeletingId(null);
+          }
+        }}
+        title="Confirmar eliminación"
+        description="Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        dangerText="Eliminar paciente"
+      />
+
       <div className="p-6 flex flex-col gap-6">
         <PageHeader
           title="Gestión de Pacientes"
@@ -119,7 +172,10 @@ export function PacientesContent() {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Filtrar por iniciales o código..."
                 className="w-full pl-9 pr-4 py-2.5 bg-[var(--muted)] border border-transparent rounded-lg text-sm focus:outline-none focus:border-[var(--brand-teal)] focus:bg-white transition-all placeholder:text-[var(--muted-foreground)]"
               />
@@ -130,11 +186,20 @@ export function PacientesContent() {
               </label>
               <select
                 value={sexo}
-                onChange={(e) => { setSexo(e.target.value); setPage(1) }}
+                onChange={(e) => {
+                  setSexo(e.target.value);
+                  setPage(1);
+                }}
                 className="px-3 py-2.5 border border-[var(--border)] rounded-lg text-sm bg-white focus:outline-none focus:border-[var(--brand-teal)] transition-colors"
               >
-                {['Todos', 'M', 'F'].map((s) => (
-                  <option key={s} value={s}>{s === 'Todos' ? 'Todos' : s === 'M' ? 'Masculino' : 'Femenino'}</option>
+                {["Todos", "M", "F"].map((s) => (
+                  <option key={s} value={s}>
+                    {s === "Todos"
+                      ? "Todos"
+                      : s === "M"
+                        ? "Masculino"
+                        : "Femenino"}
+                  </option>
                 ))}
               </select>
             </div>
@@ -162,8 +227,19 @@ export function PacientesContent() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  {['Iniciales', 'Código de Inclusión', 'Edad / Sexo', 'Diagnósticos (APP)', 'Sitio', 'Estudio', 'Acciones'].map((h) => (
-                    <th key={h} className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                  {[
+                    "Iniciales",
+                    "Código de Inclusión",
+                    "Edad / Sexo",
+                    "Diagnósticos (APP)",
+                    "Sitio",
+                    "Estudio",
+                    "Acciones",
+                  ].map((h) => (
+                    <th
+                      key={h}
+                      className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+                    >
                       {h}
                     </th>
                   ))}
@@ -172,74 +248,103 @@ export function PacientesContent() {
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={7} className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]">
+                    <td
+                      colSpan={7}
+                      className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]"
+                    >
                       Cargando pacientes...
                     </td>
                   </tr>
                 )}
-                {!isLoading && pacientes.map((p) => (
-                  <tr key={p.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)] transition-colors">
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-[var(--brand-teal-muted)] flex items-center justify-center flex-shrink-0">
-                          <span className="text-xs font-bold text-[var(--brand-teal)]">{p.iniciales}</span>
-                        </div>
-                        <span className="text-sm font-semibold text-[var(--foreground)]">{p.iniciales}</span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm font-semibold text-[var(--brand-teal)]">{p.codigoInclusion}</span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <p className="text-sm text-[var(--foreground)]">{p.edad} años</p>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sexoColor[p.sexo as 'M' | 'F'] ?? 'bg-gray-100 text-gray-700'}`}>
-                        {p.sexo === 'M' ? 'MASCULINO' : 'FEMENINO'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex flex-wrap gap-1">
-                        {(p.diagnosticos ?? []).slice(0, 3).map((d) => (
-                          <span key={typeof d === 'object' ? d.id : d} className="text-[10px] font-semibold bg-[var(--muted)] text-[var(--muted-foreground)] px-1.5 py-0.5 rounded uppercase tracking-wide">
-                            {typeof d === 'object' ? d.titulo : d}
+                {!isLoading &&
+                  pacientes.map((p) => (
+                    <tr
+                      key={p.id}
+                      className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)] transition-colors"
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-8 rounded-full bg-[var(--brand-teal-muted)] flex items-center justify-center flex-shrink-0">
+                            <span className="text-xs font-bold text-[var(--brand-teal)]">
+                              {p.iniciales}
+                            </span>
+                          </div>
+                          <span className="text-sm font-semibold text-[var(--foreground)]">
+                            {p.iniciales}
                           </span>
-                        ))}
-                        {(p.diagnosticos?.length ?? 0) > 3 && (
-                          <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">+{(p.diagnosticos?.length ?? 0) - 3}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-5 py-4 text-xs text-[var(--muted-foreground)]">
-                      {typeof p.sitioClinico === 'object' ? p.sitioClinico?.nombre : p.sitioClinico ?? '—'}
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="font-mono text-xs text-[var(--foreground)]">
-                        {typeof p.estudio === 'object' ? p.estudio?.codigoProtocolo : p.estudio ?? '—'}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setSelected(p)}
-                          className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
-                          title="Ver / Editar"
+                        </div>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="text-sm font-semibold text-[var(--brand-teal)]">
+                          {p.codigoInclusion}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <p className="text-sm text-[var(--foreground)]">
+                          {p.edad} años
+                        </p>
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${sexoColor[p.sexo as "M" | "F"] ?? "bg-gray-100 text-gray-700"}`}
                         >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(p.id)}
-                          disabled={deletingId === p.id}
-                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          {p.sexo === "M" ? "MASCULINO" : "FEMENINO"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex flex-wrap gap-1">
+                          {(p.diagnosticos ?? []).slice(0, 3).map((d) => (
+                            <span
+                              key={typeof d === "object" ? d.id : d}
+                              className="text-[10px] font-semibold bg-[var(--muted)] text-[var(--muted-foreground)] px-1.5 py-0.5 rounded uppercase tracking-wide"
+                            >
+                              {typeof d === "object" ? d.titulo : d}
+                            </span>
+                          ))}
+                          {(p.diagnosticos?.length ?? 0) > 3 && (
+                            <span className="text-[10px] font-semibold text-[var(--muted-foreground)]">
+                              +{(p.diagnosticos?.length ?? 0) - 3}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-xs text-[var(--muted-foreground)]">
+                        {typeof p.sitioClinico === "object"
+                          ? p.sitioClinico?.nombre
+                          : (p.sitioClinico ?? "—")}
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="font-mono text-xs text-[var(--foreground)]">
+                          {typeof p.estudio === "object"
+                            ? p.estudio?.codigoProtocolo
+                            : (p.estudio ?? "—")}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelected(p)}
+                            className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                            title="Ver / Editar"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(p.id)}
+                            disabled={deletingId === p.id}
+                            className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 {!isLoading && pacientes.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]">
+                    <td
+                      colSpan={7}
+                      className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]"
+                    >
                       No se encontraron pacientes con los filtros aplicados.
                     </td>
                   </tr>
@@ -249,20 +354,34 @@ export function PacientesContent() {
           </div>
           <div className="px-5 py-4 flex items-center justify-between border-t border-[var(--border)]">
             <p className="text-sm text-[var(--muted-foreground)]">
-              Mostrando <span className="font-semibold text-[var(--foreground)]">{pacientes.length}</span> de{' '}
-              <span className="font-semibold text-[var(--foreground)]">{totalPacientes.toLocaleString()}</span> pacientes
+              Mostrando{" "}
+              <span className="font-semibold text-[var(--foreground)]">
+                {pacientes.length}
+              </span>{" "}
+              de{" "}
+              <span className="font-semibold text-[var(--foreground)]">
+                {totalPacientes.toLocaleString()}
+              </span>{" "}
+              pacientes
             </p>
-            <DataPagination current={page} total={meta?.pageCount ?? 1} onChange={setPage} />
+            <DataPagination
+              current={page}
+              total={meta?.pageCount ?? 1}
+              onChange={setPage}
+            />
           </div>
         </div>
 
         {/* Banner */}
         <div className="bg-[var(--brand-teal)] rounded-xl p-6 flex items-start justify-between gap-6">
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-white mb-2">Asistencia en Gestión de Pacientes</h3>
+            <h3 className="text-lg font-bold text-white mb-2">
+              Asistencia en Gestión de Pacientes
+            </h3>
             <p className="text-white/80 text-sm leading-relaxed mb-4">
-              ¿Necesita ayuda con el registro de nuevos pacientes o la actualización de historias clínicas? Acceda a
-              nuestra guía de soporte técnico o contacte con el administrador del centro.
+              ¿Necesita ayuda con el registro de nuevos pacientes o la
+              actualización de historias clínicas? Acceda a nuestra guía de
+              soporte técnico o contacte con el administrador del centro.
             </p>
             <button className="px-4 py-2 bg-white text-[var(--brand-teal)] text-sm font-semibold rounded-lg hover:bg-white/90 transition-colors">
               Ver Documentación
@@ -274,5 +393,5 @@ export function PacientesContent() {
         </div>
       </div>
     </>
-  )
+  );
 }

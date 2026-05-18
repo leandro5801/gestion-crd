@@ -1,23 +1,43 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Search, FileDown, MapPin, Globe, Building2, Eye, Plus, Trash2 } from 'lucide-react'
-import { PageHeader } from '@/components/ui/page-header'
-import { StatCard } from '@/components/ui/stat-card'
-import { DataPagination } from '@/components/ui/data-pagination'
-import { NuevoSitioModal } from '@/components/modals/nuevo-sitio-modal'
-import { VerEditarSitioModal } from '@/components/modals/ver-editar-sitio-modal'
-import { useSitiosClinicos, deleteSitioClinico } from '@/lib/api/sitios-clinicos'
-import type { SitioClinico } from '@/lib/types'
+import { useState } from "react";
+import {
+  Search,
+  FileDown,
+  MapPin,
+  Globe,
+  Building2,
+  Eye,
+  Plus,
+  Trash2,
+} from "lucide-react";
+import { PageHeader } from "@/components/ui/page-header";
+import { StatCard } from "@/components/ui/stat-card";
+import { ConfirmarEliminacionModal } from "@/components/modals/confirmar-eliminacion-modal";
+import { DataPagination } from "@/components/ui/data-pagination";
+import { NuevoSitioModal } from "@/components/modals/nuevo-sitio-modal";
+import { VerEditarSitioModal } from "@/components/modals/ver-editar-sitio-modal";
+import {
+  useSitiosClinicos,
+  deleteSitioClinico,
+} from "@/lib/api/sitios-clinicos";
+import type { ID, SitioClinico } from "@/lib/types";
 
 export function SitiosClinicosContent() {
-  const [search, setSearch] = useState('')
-  const [page, setPage] = useState(1)
-  const [showModal, setShowModal] = useState(false)
-  const [selected, setSelected] = useState<SitioClinico | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [showModal, setShowModal] = useState(false);
+  const [selected, setSelected] = useState<SitioClinico | null>(null);
 
-  const { items: sitios, meta, isLoading, mutate } = useSitiosClinicos({
+  const [deletingId, setDeletingId] = useState<ID | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  const {
+    items: sitios,
+    meta,
+    isLoading,
+    mutate,
+  } = useSitiosClinicos({
     pagination: { page, pageSize: 10 },
     filters: search
       ? {
@@ -27,28 +47,57 @@ export function SitiosClinicosContent() {
           ],
         }
       : undefined,
-  })
+  });
 
-  const totalSitios = meta?.total ?? 0
+  const totalSitios = meta?.total ?? 0;
 
-  const handleDelete = async (id: string) => {
-    if (!confirm(`¿Está seguro de que desea eliminar este sitio clínico? Esta acción no se puede deshacer.`)) return
-    setDeletingId(id)
-    try {
-      await deleteSitioClinico(id)
-      await mutate()
-    } catch (error) {
-      console.error('Error deleting sitio:', error)
-      alert('Error al eliminar el sitio clínico')
-    } finally {
-      setDeletingId(null)
-    }
-  }
+  const handleDelete = (id: ID) => {
+    setDeletingId(id);
+    setDeleteOpen(true);
+  };
 
   return (
     <>
-      <NuevoSitioModal open={showModal} onClose={() => { setShowModal(false); mutate() }} />
-      <VerEditarSitioModal sitio={selected} onClose={() => { setSelected(null); mutate() }} />
+      <NuevoSitioModal
+        open={showModal}
+        onClose={() => {
+          setShowModal(false);
+          mutate();
+        }}
+      />
+
+      <VerEditarSitioModal
+        sitio={selected}
+        onClose={() => {
+          setSelected(null);
+          mutate();
+        }}
+      />
+
+      <ConfirmarEliminacionModal
+        open={deleteOpen}
+        onClose={() => {
+          setDeleteOpen(false);
+          setDeletingId(null);
+        }}
+        onConfirm={async () => {
+          if (!deletingId) return;
+          try {
+            await deleteSitioClinico(deletingId);
+            await mutate();
+          } catch (error) {
+            console.error("Error deleting sitio:", error);
+            alert("Error al eliminar el sitio clínico");
+          } finally {
+            setDeletingId(null);
+          }
+        }}
+        title="Confirmar eliminación"
+        description="Esta acción no se puede deshacer."
+        confirmText="Eliminar"
+        dangerText="Eliminar sitio clínico"
+      />
+
       <div className="p-6 flex flex-col gap-6">
         <PageHeader
           title="Gestión de Sitios Clínicos"
@@ -101,7 +150,10 @@ export function SitiosClinicosContent() {
               <input
                 type="text"
                 value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
                 placeholder="Buscar por nombre o código de sitio..."
                 className="w-full pl-9 pr-4 py-2.5 bg-[var(--muted)] border border-transparent rounded-lg text-sm focus:outline-none focus:border-[var(--brand-teal)] focus:bg-white transition-all placeholder:text-[var(--muted-foreground)]"
               />
@@ -122,56 +174,75 @@ export function SitiosClinicosContent() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--border)]">
-                  {['Nombre del Sitio', 'Código', 'Pacientes', 'Acción'].map((h) => (
-                    <th key={h} className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                      {h}
-                    </th>
-                  ))}
+                  {["Nombre del Sitio", "Código", "Pacientes", "Acción"].map(
+                    (h) => (
+                      <th
+                        key={h}
+                        className="px-5 py-3.5 text-left text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]"
+                      >
+                        {h}
+                      </th>
+                    ),
+                  )}
                 </tr>
               </thead>
               <tbody>
                 {isLoading && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]">
+                    <td
+                      colSpan={4}
+                      className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]"
+                    >
                       Cargando sitios clínicos...
                     </td>
                   </tr>
                 )}
-                {!isLoading && sitios.map((s) => (
-                  <tr key={s.id} className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)] transition-colors">
-                    <td className="px-5 py-4">
-                      <p className="text-sm font-semibold text-[var(--foreground)]">{s.nombre}</p>
-                    </td>
-                    <td className="px-5 py-4">
-                      <span className="font-mono text-xs font-medium text-[var(--foreground)]">{s.codigo}</span>
-                    </td>
-                    <td className="px-5 py-4 text-sm font-bold text-[var(--foreground)]">
-                      {s.pacientes?.length ?? 0}
-                    </td>
-                    <td className="px-5 py-4">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => setSelected(s)}
-                          className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
-                          title="Ver / Editar"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(s.id)}
-                          disabled={deletingId === s.id}
-                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                          title="Eliminar"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                {!isLoading &&
+                  sitios.map((s) => (
+                    <tr
+                      key={s.id}
+                      className="border-b border-[var(--border)] last:border-0 hover:bg-[var(--muted)] transition-colors"
+                    >
+                      <td className="px-5 py-4">
+                        <p className="text-sm font-semibold text-[var(--foreground)]">
+                          {s.nombre}
+                        </p>
+                      </td>
+                      <td className="px-5 py-4">
+                        <span className="font-mono text-xs font-medium text-[var(--foreground)]">
+                          {s.codigo}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-sm font-bold text-[var(--foreground)]">
+                        {s.pacientes?.length ?? 0}
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelected(s)}
+                            className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                            title="Ver / Editar"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(s.id)}
+                            disabled={deletingId === s.id}
+                            className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 {!isLoading && sitios.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]">
+                    <td
+                      colSpan={4}
+                      className="px-5 py-12 text-center text-sm text-[var(--muted-foreground)]"
+                    >
                       No se encontraron sitios con los filtros seleccionados.
                     </td>
                   </tr>
@@ -179,22 +250,37 @@ export function SitiosClinicosContent() {
               </tbody>
             </table>
           </div>
+
           <div className="px-5 py-4 flex items-center justify-between border-t border-[var(--border)]">
             <p className="text-sm text-[var(--muted-foreground)]">
-              Mostrando <span className="font-semibold text-[var(--foreground)]">{sitios.length}</span> de{' '}
-              <span className="font-semibold text-[var(--foreground)]">{totalSitios}</span> sitios clínicos
+              Mostrando{" "}
+              <span className="font-semibold text-[var(--foreground)]">
+                {sitios.length}
+              </span>{" "}
+              de{" "}
+              <span className="font-semibold text-[var(--foreground)]">
+                {totalSitios}
+              </span>{" "}
+              sitios clínicos
             </p>
-            <DataPagination current={page} total={meta?.pageCount ?? 1} onChange={setPage} />
+            <DataPagination
+              current={page}
+              total={meta?.pageCount ?? 1}
+              onChange={setPage}
+            />
           </div>
         </div>
 
         {/* Help banner */}
         <div className="bg-[var(--brand-teal)] rounded-xl p-6 flex items-start justify-between gap-6">
           <div className="flex-1">
-            <h3 className="text-lg font-bold text-white mb-2">Asistencia en Gestión de Sitios</h3>
+            <h3 className="text-lg font-bold text-white mb-2">
+              Asistencia en Gestión de Sitios
+            </h3>
             <p className="text-white/80 text-sm leading-relaxed mb-4">
-              ¿Necesita ayuda con la certificación de nuevos centros o la gestión de roles de investigadores? Acceda a
-              nuestra guía de soporte técnico o contacte con el administrador regional.
+              ¿Necesita ayuda con la certificación de nuevos centros o la
+              gestión de roles de investigadores? Acceda a nuestra guía de
+              soporte técnico o contacte con el administrador regional.
             </p>
             <button className="px-4 py-2 bg-white text-[var(--brand-teal)] text-sm font-semibold rounded-lg hover:bg-white/90 transition-colors">
               Ver Documentación
@@ -206,5 +292,5 @@ export function SitiosClinicosContent() {
         </div>
       </div>
     </>
-  )
+  );
 }
