@@ -15,3 +15,6 @@ export const estudiosApi = createCrud<Estudio>({
 
 export const useEstudios = estudiosApi.useList
 export const useEstudio = estudiosApi.useOne
+export const createEstudio = estudiosApi.create
+export const updateEstudio = estudiosApi.update
+export const deleteEstudio = estudiosApi.delete

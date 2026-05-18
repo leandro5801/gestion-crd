@@ -17,3 +17,6 @@ export const pacientesApi = createCrud<Paciente>({
 
 export const usePacientes = pacientesApi.useList
 export const usePaciente = pacientesApi.useOne
+export const createPaciente = pacientesApi.create
+export const updatePaciente = pacientesApi.update
+export const deletePaciente = pacientesApi.delete

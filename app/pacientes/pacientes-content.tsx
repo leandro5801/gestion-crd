@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, FileDown, Users, TrendingUp, UserPlus, ShieldCheck, Eye, Plus } from 'lucide-react'
+import { Search, FileDown, Users, TrendingUp, UserPlus, ShieldCheck, Eye, Plus, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { DataPagination } from '@/components/ui/data-pagination'
 import { NuevoPacienteModal } from '@/components/modals/nuevo-paciente-modal'
 import { VerEditarPacienteModal } from '@/components/modals/ver-editar-paciente-modal'
 import { AppTypesManager } from '@/components/pacientes/app-types-manager'
-import { usePacientes } from '@/lib/api/pacientes'
+import { usePacientes, deletePaciente } from '@/lib/api/pacientes'
 import type { Paciente } from '@/lib/types'
 
 export function PacientesContent() {
@@ -18,6 +18,7 @@ export function PacientesContent() {
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<Paciente | null>(null)
   const [showAppTypes, setShowAppTypes] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const filters: Record<string, unknown> = {}
   if (search) {
@@ -34,6 +35,20 @@ export function PacientesContent() {
   })
 
   const totalPacientes = meta?.total ?? 0
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar este paciente? Esta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await deletePaciente(id)
+      await mutate()
+    } catch (error) {
+      console.error('Error deleting paciente:', error)
+      alert('Error al eliminar el paciente')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   const sexoColor = { M: 'bg-blue-100 text-blue-700', F: 'bg-pink-100 text-pink-700' } as const
 
@@ -202,13 +217,23 @@ export function PacientesContent() {
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        onClick={() => setSelected(p)}
-                        className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
-                        title="Ver / Editar"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelected(p)}
+                          className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                          title="Ver / Editar"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(p.id)}
+                          disabled={deletingId === p.id}
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

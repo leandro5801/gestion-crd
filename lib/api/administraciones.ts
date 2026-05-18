@@ -14,3 +14,6 @@ export const administracionesApi = createCrud<AdministracionMedicamento>({
 
 export const useAdministraciones = administracionesApi.useList
 export const useAdministracion = administracionesApi.useOne
+export const createAdministracion = administracionesApi.create
+export const updateAdministracion = administracionesApi.update
+export const deleteAdministracion = administracionesApi.delete

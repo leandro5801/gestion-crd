@@ -1,13 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, FileDown, Pill, CheckCircle2, XCircle, Plus, Eye } from 'lucide-react'
+import { Search, FileDown, Pill, CheckCircle2, XCircle, Plus, Eye, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { DataPagination } from '@/components/ui/data-pagination'
 import { NuevaAdministracionModal } from '@/components/modals/nueva-administracion-modal'
 import { VerEditarAdministracionModal } from '@/components/modals/ver-editar-administracion-modal'
-import { useAdministraciones } from '@/lib/api/administraciones'
+import { useAdministraciones, deleteAdministracion } from '@/lib/api/administraciones'
 import type { AdministracionMedicamento } from '@/lib/types'
 
 export function AdministracionContent() {
@@ -16,6 +16,7 @@ export function AdministracionContent() {
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<AdministracionMedicamento | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const filters: Record<string, unknown> = {}
   if (via !== 'Todos') filters.via = { $eq: via }
@@ -28,6 +29,20 @@ export function AdministracionContent() {
   const totalAdm = meta?.total ?? 0
   const byViaSC = admins.filter((a) => a.via === 'SC').length
   const byViaIV = admins.filter((a) => a.via === 'IV').length
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar este registro de administración? Esta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await deleteAdministracion(id)
+      await mutate()
+    } catch (error) {
+      console.error('Error deleting administracion:', error)
+      alert('Error al eliminar el registro')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <>
@@ -198,13 +213,23 @@ export function AdministracionContent() {
                         {a.numeroUnidades ?? '—'}
                       </td>
                       <td className="px-5 py-4">
-                        <button
-                          onClick={() => setSelected(a)}
-                          className="flex items-center gap-1.5 text-sm font-semibold text-[var(--brand-teal)] hover:underline"
-                        >
-                          <Eye className="w-4 h-4" />
-                          Ver
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSelected(a)}
+                            className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                            title="Ver / Editar"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(a.id)}
+                            disabled={deletingId === a.id}
+                            className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Eliminar"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )

@@ -16,3 +16,6 @@ export const crdsApi = createCrud<CRD>({
 
 export const useCrds = crdsApi.useList
 export const useCrd = crdsApi.useOne
+export const createCrd = crdsApi.create
+export const updateCrd = crdsApi.update
+export const deleteCrd = crdsApi.delete

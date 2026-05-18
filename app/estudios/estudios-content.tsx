@@ -1,14 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { Search, FileDown, Plus, FlaskConical, Users, AlertTriangle, Calendar, Eye } from 'lucide-react'
+import { Search, FileDown, Plus, FlaskConical, Users, AlertTriangle, Calendar, Eye, Trash2 } from 'lucide-react'
 import { PageHeader } from '@/components/ui/page-header'
 import { StatCard } from '@/components/ui/stat-card'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { DataPagination } from '@/components/ui/data-pagination'
 import { NuevoEstudioModal } from '@/components/modals/nuevo-estudio-modal'
 import { VerEditarEstudioModal } from '@/components/modals/ver-editar-estudio-modal'
-import { useEstudios } from '@/lib/api/estudios'
+import { useEstudios, deleteEstudio } from '@/lib/api/estudios'
 import type { Estudio } from '@/lib/types'
 
 export function EstudiosContent() {
@@ -16,6 +16,7 @@ export function EstudiosContent() {
   const [page, setPage] = useState(1)
   const [showModal, setShowModal] = useState(false)
   const [selected, setSelected] = useState<Estudio | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const { items: estudios, meta, isLoading, mutate } = useEstudios({
     pagination: { page, pageSize: 10 },
@@ -31,6 +32,20 @@ export function EstudiosContent() {
   })
 
   const totalEstudios = meta?.total ?? 0
+
+  const handleDelete = async (id: string) => {
+    if (!confirm(`¿Está seguro de que desea eliminar este estudio? Esta acción no se puede deshacer.`)) return
+    setDeletingId(id)
+    try {
+      await deleteEstudio(id)
+      await mutate()
+    } catch (error) {
+      console.error('Error deleting estudio:', error)
+      alert('Error al eliminar el estudio')
+    } finally {
+      setDeletingId(null)
+    }
+  }
 
   return (
     <>
@@ -164,13 +179,23 @@ export function EstudiosContent() {
                       {e.pacientes?.length ?? 0}
                     </td>
                     <td className="px-5 py-4">
-                      <button
-                        onClick={() => setSelected(e)}
-                        className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
-                        title="Ver / Editar"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setSelected(e)}
+                          className="p-1.5 rounded-lg text-[var(--brand-teal)] hover:bg-[var(--brand-teal-muted)] transition-colors"
+                          title="Ver / Editar"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(e.id)}
+                          disabled={deletingId === e.id}
+                          className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
