@@ -1,18 +1,17 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { X, Edit2, Save, AlertTriangle, CheckCircle } from "lucide-react";
 import { type EventoAdverso } from "@/lib/types";
-import { usePacientes } from "@/lib/api/pacientes";
-import { useEstudios } from "@/lib/api/estudios";
-import { updateEventoAdverso } from "@/lib/api/eventos-adversos";
+import { useAdministraciones } from "@/lib/api/administraciones";
+import { useTiposEventoAdverso } from "@/lib/api/tipos-evento-adverso";
+import { eventosAdversosApi } from "@/lib/api/eventos-adversos";
+import { SearchableRelationSelect } from "@/components/ui/searchable-relation-select";
 
 const selectCls =
   "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white focus:outline-none focus:border-[var(--brand-teal)] transition-colors";
 const inputCls =
   "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[var(--brand-teal)] transition-colors";
-const readOnlyCls =
-  "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--muted)] cursor-not-allowed";
 
 const SOC_LIST = [
   "Blood Disorders",
@@ -43,14 +42,37 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [form, setForm] = useState<EventoAdverso | null>(null);
-  const { data: pacientes = [] } = usePacientes();
-  const { data: estudios = [] } = useEstudios();
+  const [adminId, setAdminId] = useState("");
+  const [tipoEAId, setTipoEAId] = useState("");
+
+  const { items: administraciones } = useAdministraciones({
+    pagination: { pageSize: 200 },
+    populate: {
+      crd: {
+        populate: { paciente: { fields: ["id", "iniciales", "codigoInclusion"] } },
+      },
+    },
+  });
+
+  const { items: tiposEA } = useTiposEventoAdverso({
+    pagination: { pageSize: 100 },
+  });
 
   useEffect(() => {
     if (evento) {
       setForm({ ...evento });
       setEditing(false);
       setSaved(false);
+      const adm =
+        typeof evento.administracion_medicamento === "object"
+          ? evento.administracion_medicamento
+          : null;
+      const tipo =
+        typeof evento.tipo_evento_adverso === "object"
+          ? evento.tipo_evento_adverso
+          : null;
+      setAdminId(adm ? String(adm.id) : "");
+      setTipoEAId(tipo ? String(tipo.id) : "");
     }
   }, [evento]);
 
@@ -58,29 +80,68 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
 
   const isSAE = form.intensidad === "Severo";
 
-  // When patient is changed, auto-fill estudio
-  const handlePacienteChange = (codigoInclusion: string) => {
-    const paciente = pacientes.find(
-      (p) => p.codigoInclusion === codigoInclusion,
-    );
-    const estudio = paciente
-      ? estudios.find((e) => e.codigoProtocolo === paciente.estudio)
+  // derive patient info from the selected administracion
+  const adminOptions = administraciones.map((a) => {
+    const crd = typeof a.crd === "object" ? a.crd : null;
+    const p = typeof crd?.paciente === "object" ? crd?.paciente : null;
+    return {
+      value: String(a.id),
+      label: `#${a.id} — ${p?.codigoInclusion ?? "CRD desconocido"} — Dosis #${a.numeroDosis} (${a.dosisMg}mg ${a.via})`,
+    };
+  });
+
+  const tipoEAOptions = tiposEA.map((t) => ({
+    value: String(t.id),
+    label: t.nombre,
+  }));
+
+  const selectedAdmin = administraciones.find(
+    (a) => String(a.id) === adminId,
+  );
+  const selectedCrd =
+    selectedAdmin && typeof selectedAdmin.crd === "object"
+      ? selectedAdmin.crd
       : null;
-    setForm((f) =>
-      f
-        ? {
-            ...f,
-            pacienteId: codigoInclusion,
-            estudio: estudio?.codigoProtocolo ?? f.estudio,
-          }
-        : f,
-    );
-  };
+  const selectedPaciente =
+    selectedCrd && typeof selectedCrd.paciente === "object"
+      ? selectedCrd.paciente
+      : null;
+
+  // current linked admin (view mode)
+  const currentAdmin =
+    typeof evento.administracion_medicamento === "object"
+      ? evento.administracion_medicamento
+      : null;
+  const currentCrd =
+    currentAdmin && typeof currentAdmin.crd === "object"
+      ? currentAdmin.crd
+      : null;
+  const currentPaciente =
+    currentCrd && typeof currentCrd.paciente === "object"
+      ? currentCrd.paciente
+      : null;
+
+  const currentTipo =
+    typeof evento.tipo_evento_adverso === "object"
+      ? evento.tipo_evento_adverso
+      : null;
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await updateEventoAdverso(evento.documentId, form);
+      await eventosAdversosApi.update(evento.documentId, {
+        SOC: form.SOC,
+        intensidad: form.intensidad,
+        gravedad: form.gravedad,
+        imputabilidad: form.imputabilidad,
+        suspensionTratamiento: form.suspensionTratamiento,
+        administracion_medicamento: adminId
+          ? ({ id: parseInt(adminId, 10) } as never)
+          : undefined,
+        tipo_evento_adverso: tipoEAId
+          ? ({ id: parseInt(tipoEAId, 10) } as never)
+          : undefined,
+      });
       setSaving(false);
       setSaved(true);
       setEditing(false);
@@ -90,34 +151,6 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
       setSaving(false);
     }
   };
-
-  const TextField = ({
-    label,
-    fkey,
-    type = "text",
-  }: {
-    label: string;
-    fkey: keyof EventoAdverso;
-    type?: string;
-  }) => (
-    <div className="flex flex-col gap-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-        {label}
-      </label>
-      {editing ? (
-        <input
-          type={type}
-          value={String(form[fkey] ?? "")}
-          onChange={(e) => setForm({ ...form, [fkey]: e.target.value })}
-          className={inputCls}
-        />
-      ) : (
-        <p className="text-sm font-medium text-[var(--foreground)]">
-          {String(form[fkey] ?? "—")}
-        </p>
-      )}
-    </div>
-  );
 
   const SelectField = ({
     label,
@@ -167,7 +200,7 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-[var(--foreground)] truncate">
-                  {form.tipo}
+                  {currentTipo?.nombre ?? form.SOC ?? "Evento Adverso"}
                 </h2>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${intensidadStyle[form.intensidad]}`}
@@ -177,7 +210,10 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
                 </span>
               </div>
               <p className="text-xs text-[var(--muted-foreground)] truncate">
-                {form.pacienteId} · {form.estudio}
+                {currentPaciente?.codigoInclusion ?? "—"}
+                {currentPaciente?.iniciales
+                  ? ` (${currentPaciente.iniciales})`
+                  : ""}
               </p>
             </div>
           </div>
@@ -199,6 +235,16 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
                 <button
                   onClick={() => {
                     setForm({ ...evento });
+                    const adm =
+                      typeof evento.administracion_medicamento === "object"
+                        ? evento.administracion_medicamento
+                        : null;
+                    const tipo =
+                      typeof evento.tipo_evento_adverso === "object"
+                        ? evento.tipo_evento_adverso
+                        : null;
+                    setAdminId(adm ? String(adm.id) : "");
+                    setTipoEAId(tipo ? String(tipo.id) : "");
                     setEditing(false);
                   }}
                   className="px-3 py-1.5 text-sm text-[var(--muted-foreground)] border border-[var(--border)] rounded-lg hover:bg-[var(--muted)] transition-colors"
@@ -238,71 +284,102 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
 
         {/* Body */}
         <div className="overflow-y-auto flex-1 p-4 sm:p-6 flex flex-col gap-5">
-          <TextField label="Tipo de Evento / MedDRA" fkey="tipo" />
 
-          {/* Patient — select with cascade to study */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          {/* Vinculación */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+              Administración de Medicamento
+            </label>
+            {editing ? (
+              <SearchableRelationSelect
+                options={adminOptions}
+                value={adminId}
+                onChange={setAdminId}
+                placeholder="Buscar administración o paciente..."
+                emptyLabel="Sin administración vinculada"
+              />
+            ) : (
+              <div className="flex flex-col gap-0.5">
+                <p className="text-sm font-medium text-[var(--foreground)]">
+                  {currentAdmin
+                    ? `#${currentAdmin.id} — Dosis #${currentAdmin.numeroDosis} (${currentAdmin.dosisMg}mg ${currentAdmin.via})`
+                    : "—"}
+                </p>
+                {currentPaciente && (
+                  <p className="text-xs text-[var(--muted-foreground)]">
+                    Paciente: {currentPaciente.codigoInclusion}{" "}
+                    {currentPaciente.iniciales
+                      ? `(${currentPaciente.iniciales})`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Paciente derivado (solo lectura en edición) */}
+          {editing && (
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                Paciente
+                Paciente (derivado)
               </label>
-              {editing ? (
-                <select
-                  value={form.pacienteId}
-                  onChange={(e) => handlePacienteChange(e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="">Seleccionar paciente...</option>
-                  {pacientes.map((p) => (
-                    <option key={p.id} value={p.codigoInclusion}>
-                      {p.codigoInclusion} — {p.iniciales}
-                    </option>
-                  ))}
-                </select>
-              ) : (
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  {form.pacienteId}
-                </p>
-              )}
+              <input
+                readOnly
+                tabIndex={-1}
+                value={
+                  selectedPaciente
+                    ? `${selectedPaciente.codigoInclusion} — ${selectedPaciente.iniciales ?? ""}`
+                    : "Selecciona una administración"
+                }
+                className="w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--muted)] cursor-not-allowed"
+              />
             </div>
-            {/* Estudio auto-fills from patient, read-only when editing */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                Estudio
-              </label>
-              {editing ? (
-                <input
-                  value={form.estudio}
-                  readOnly
-                  className={readOnlyCls}
-                  tabIndex={-1}
-                />
-              ) : (
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  {form.estudio}
-                </p>
-              )}
-            </div>
+          )}
+
+          {/* Tipo EA */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+              Tipo de Evento Adverso
+            </label>
+            {editing ? (
+              <SearchableRelationSelect
+                options={tipoEAOptions}
+                value={tipoEAId}
+                onChange={setTipoEAId}
+                placeholder="Buscar tipo de evento adverso..."
+                emptyLabel="Sin tipo asignado"
+              />
+            ) : (
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                {currentTipo?.nombre ?? "—"}
+              </p>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <TextField
-              label="Fecha Reportado"
-              fkey="fechaReportado"
-              type="date"
-            />
-            <TextField label="Fecha Inicio" fkey="fechaInicio" type="date" />
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <TextField label="Fecha Fin" fkey="fechaFin" type="date" />
-            <SelectField
-              label="Estado"
-              fkey="estado"
-              options={["Activo", "Resuelto", "En seguimiento"]}
-            />
+          {/* SOC */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+              SOC (WHO-ART)
+            </label>
+            {editing ? (
+              <select
+                value={form.SOC ?? ""}
+                onChange={(e) => setForm({ ...form, SOC: e.target.value })}
+                className={selectCls}
+              >
+                <option value="">Seleccionar sistema orgánico...</option>
+                {SOC_LIST.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </select>
+            ) : (
+              <p className="text-sm font-medium text-[var(--foreground)]">
+                {form.SOC || "—"}
+              </p>
+            )}
           </div>
 
-          {/* Intensidad — button group when editing */}
+          {/* Intensidad */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
               Intensidad
@@ -364,29 +441,6 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
             />
           </div>
 
-          {/* SOC — select when editing */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              SOC (WHO-ART)
-            </label>
-            {editing ? (
-              <select
-                value={form.SOC}
-                onChange={(e) => setForm({ ...form, SOC: e.target.value })}
-                className={selectCls}
-              >
-                <option value="">Seleccionar sistema orgánico...</option>
-                {SOC_LIST.map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-sm font-medium text-[var(--foreground)]">
-                {form.SOC || "—"}
-              </p>
-            )}
-          </div>
-
           {/* Suspensión */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
@@ -396,7 +450,7 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  checked={form.suspensionTratamiento}
+                  checked={form.suspensionTratamiento ?? false}
                   onChange={(e) =>
                     setForm({
                       ...form,

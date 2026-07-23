@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { AlertTriangle } from 'lucide-react'
 import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
+import { SearchableRelationSelect } from '@/components/ui/searchable-relation-select'
 import { eventosAdversosApi } from '@/lib/api/eventos-adversos'
 import { useAdministraciones } from '@/lib/api/administraciones'
 import { useTiposEventoAdverso } from '@/lib/api/tipos-evento-adverso'
@@ -44,6 +45,20 @@ export function NuevoEventoModal({ open, onClose }: Props) {
     populate: { crd: { populate: { paciente: { fields: ['id', 'iniciales', 'codigoInclusion'] } } } },
   })
   const { items: tiposEA } = useTiposEventoAdverso({ pagination: { pageSize: 100 } })
+
+  const adminOptions = administraciones.map((a) => {
+    const crd = typeof a.crd === 'object' ? a.crd : null
+    const p = typeof crd?.paciente === 'object' ? crd?.paciente : null
+    return {
+      value: String(a.id),
+      label: `#${a.id} — ${p?.codigoInclusion ?? 'CRD desconocido'} — Dosis #${a.numeroDosis} (${a.dosisMg}mg ${a.via})`,
+    }
+  })
+
+  const tipoEAOptions = tiposEA.map((t) => ({
+    value: String(t.id),
+    label: t.nombre,
+  }))
 
   const update = (k: keyof typeof form, v: string | boolean) =>
     setForm((f) => ({ ...f, [k]: v }))
@@ -138,36 +153,24 @@ export function NuevoEventoModal({ open, onClose }: Props) {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <FormField label="Administración de medicamento" required className="col-span-1 sm:col-span-2">
-              <select
-                className={selectCls}
+              <SearchableRelationSelect
+                options={adminOptions}
                 value={form.administracionId}
-                onChange={(e) => update('administracionId', e.target.value)}
+                onChange={(v) => update('administracionId', v)}
+                placeholder="Buscar administración o paciente..."
+                emptyLabel="Seleccionar administración..."
                 required
-              >
-                <option value="">Seleccionar administración...</option>
-                {administraciones.map((a) => {
-                  const crd = typeof a.crd === 'object' ? a.crd : null
-                  const p = typeof crd?.paciente === 'object' ? crd?.paciente : null
-                  return (
-                    <option key={a.id} value={String(a.id)}>
-                      #{a.id} — {p?.codigoInclusion ?? 'CRD desconocido'} — Dosis #{a.numeroDosis} ({a.dosisMg}mg {a.via})
-                    </option>
-                  )
-                })}
-              </select>
+              />
             </FormField>
 
             <FormField label="Tipo de Evento Adverso" className="col-span-1 sm:col-span-2">
-              <select
-                className={selectCls}
+              <SearchableRelationSelect
+                options={tipoEAOptions}
                 value={form.tipoEventoAdversoId}
-                onChange={(e) => update('tipoEventoAdversoId', e.target.value)}
-              >
-                <option value="">Seleccionar tipo (opcional)...</option>
-                {tiposEA.map((t) => (
-                  <option key={t.id} value={String(t.id)}>{t.nombre}</option>
-                ))}
-              </select>
+                onChange={(v) => update('tipoEventoAdversoId', v)}
+                placeholder="Buscar tipo de evento..."
+                emptyLabel="Seleccionar tipo (opcional)..."
+              />
             </FormField>
           </div>
         </div>

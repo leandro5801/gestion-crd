@@ -3,9 +3,9 @@
 import { useState, useEffect } from "react";
 import { X, Edit2, Save, Stethoscope, CheckCircle } from "lucide-react";
 import { type TratamientoConcomitante } from "@/lib/types";
-import { usePacientes } from "@/lib/api/pacientes";
-import { useEstudios } from "@/lib/api/estudios";
-import { updateTratamientoConcomitante } from "@/lib/api/concomitantes";
+import { useCrds } from "@/lib/api/crds";
+import { concomitantesApi } from "@/lib/api/concomitantes";
+import { SearchableRelationSelect } from "@/components/ui/searchable-relation-select";
 
 const selectCls =
   "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-white focus:outline-none focus:border-[var(--brand-teal)] transition-colors";
@@ -13,12 +13,6 @@ const inputCls =
   "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm focus:outline-none focus:border-[var(--brand-teal)] transition-colors";
 const readOnlyCls =
   "w-full px-3 py-2 border border-[var(--border)] rounded-lg text-sm bg-[var(--muted)] cursor-not-allowed";
-
-const estadoStyle: Record<string, string> = {
-  Activo: "bg-green-50 text-green-700 border border-green-200",
-  Finalizado: "bg-slate-100 text-slate-600 border border-slate-200",
-  Suspendido: "bg-amber-50 text-amber-700 border border-amber-200",
-};
 
 interface Props {
   concomitante: TratamientoConcomitante | null;
@@ -29,50 +23,66 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<TratamientoConcomitante | null>(null);
-  const { data: pacientes = [] } = usePacientes();
-  const { data: estudios = [] } = useEstudios();
+  const [crdId, setCrdId] = useState("");
+
+  const { items: crds } = useCrds({
+    pagination: { pageSize: 200 },
+    populate: { paciente: { fields: ["id", "iniciales", "codigoInclusion"] } },
+  });
 
   useEffect(() => {
     if (concomitante) {
       setForm({ ...concomitante });
       setEditing(false);
       setSaved(false);
+      setError(null);
+      const crd =
+        typeof concomitante.crd === "object" ? concomitante.crd : null;
+      setCrdId(crd ? String(crd.id) : "");
     }
   }, [concomitante]);
 
   if (!concomitante || !form) return null;
 
-  // When patient changes, auto-fill estudio
-  const handlePacienteChange = (codigoInclusion: string) => {
-    const paciente = pacientes.find(
-      (p) => p.codigoInclusion === codigoInclusion,
-    );
-    const estudio = paciente
-      ? estudios.find((e) => e.codigoProtocolo === paciente.estudio)
+  const currentCrd =
+    typeof form.crd === "object" ? form.crd : null;
+  const currentPaciente =
+    currentCrd && typeof currentCrd.paciente === "object"
+      ? currentCrd.paciente
       : null;
-    setForm((f) =>
-      f
-        ? {
-            ...f,
-            pacienteId: codigoInclusion,
-            iniciales: paciente?.iniciales ?? f.iniciales,
-            estudio: estudio?.codigoProtocolo ?? f.estudio,
-          }
-        : f,
-    );
-  };
+
+  const crdOptions = crds.map((c) => {
+    const p = typeof c.paciente === "object" ? c.paciente : null;
+    return {
+      value: String(c.id),
+      label: `CRD #${c.id} — ${p?.codigoInclusion ?? "?"} ${p?.iniciales ? `(${p.iniciales})` : ""}`,
+    };
+  });
+
+  const selectedCrd = crds.find((c) => String(c.id) === crdId);
+  const selectedPaciente =
+    selectedCrd && typeof selectedCrd.paciente === "object"
+      ? selectedCrd.paciente
+      : null;
 
   const handleSave = async () => {
     setSaving(true);
+    setError(null);
     try {
-      await updateTratamientoConcomitante(concomitante.documentId, form);
+      await concomitantesApi.update(concomitante.documentId, {
+        medicamento: form.medicamento,
+        via: form.via,
+        dosisDiaria: form.dosisDiaria,
+        crd: crdId ? ({ id: parseInt(crdId, 10) } as never) : undefined,
+      });
       setSaving(false);
       setSaved(true);
       setEditing(false);
       setTimeout(() => setSaved(false), 2500);
-    } catch (error) {
-      console.error("Error saving concomitante:", error);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "No se pudo guardar");
       setSaving(false);
     }
   };
@@ -91,8 +101,12 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
                 {form.medicamento}
               </h2>
               <p className="text-xs text-[var(--muted-foreground)] truncate">
-                {form.pacienteId} ·{" "}
-                {editing ? "Editando tratamiento" : "Detalle Concomitante"}
+                {currentPaciente?.codigoInclusion
+                  ? `${currentPaciente.codigoInclusion}${currentPaciente.iniciales ? ` (${currentPaciente.iniciales})` : ""}`
+                  : currentCrd
+                    ? `CRD #${currentCrd.id}`
+                    : "Sin CRD"}{" "}
+                · {editing ? "Editando tratamiento" : "Detalle Concomitante"}
               </p>
             </div>
           </div>
@@ -114,7 +128,13 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
                 <button
                   onClick={() => {
                     setForm({ ...concomitante });
+                    const crd =
+                      typeof concomitante.crd === "object"
+                        ? concomitante.crd
+                        : null;
+                    setCrdId(crd ? String(crd.id) : "");
                     setEditing(false);
+                    setError(null);
                   }}
                   className="px-3 py-1.5 text-sm text-[var(--muted-foreground)] border border-[var(--border)] rounded-lg hover:bg-[var(--muted)] transition-colors"
                 >
@@ -141,51 +161,56 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
 
         {/* Body */}
         <div className="overflow-y-auto flex-1 p-4 sm:p-6 flex flex-col gap-5">
-          {/* Paciente — select with cascade */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              Paciente
-            </label>
-            {editing ? (
-              <select
-                value={form.pacienteId}
-                onChange={(e) => handlePacienteChange(e.target.value)}
-                className={selectCls}
-              >
-                <option value="">Seleccionar paciente...</option>
-                {pacientes.map((p) => (
-                  <option key={p.id} value={p.codigoInclusion}>
-                    {p.codigoInclusion} — {p.iniciales} ({p.estudio})
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <p className="text-sm font-medium text-[var(--foreground)]">
-                {form.pacienteId} ({form.iniciales})
-              </p>
-            )}
-          </div>
+          {error && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+              {error}
+            </div>
+          )}
 
-          {/* Estudio — auto-filled, read-only when editing */}
+          {/* CRD / Paciente */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              Estudio
+              CRD / Paciente
             </label>
             {editing ? (
-              <input
-                value={form.estudio}
-                readOnly
-                className={readOnlyCls}
-                tabIndex={-1}
+              <SearchableRelationSelect
+                options={crdOptions}
+                value={crdId}
+                onChange={setCrdId}
+                placeholder="Buscar CRD o paciente..."
+                emptyLabel="Sin CRD asignado"
               />
             ) : (
               <p className="text-sm font-medium text-[var(--foreground)]">
-                {form.estudio}
+                {currentPaciente
+                  ? `${currentPaciente.codigoInclusion}${currentPaciente.iniciales ? ` (${currentPaciente.iniciales})` : ""}`
+                  : currentCrd
+                    ? `CRD #${currentCrd.id}`
+                    : "—"}
               </p>
             )}
           </div>
 
-          {/* Medicamento (editable — concomitant can be anything) */}
+          {/* Paciente derivado (solo lectura en edición) */}
+          {editing && (
+            <div className="flex flex-col gap-1.5">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                Paciente (derivado del CRD)
+              </label>
+              <input
+                readOnly
+                tabIndex={-1}
+                value={
+                  selectedPaciente
+                    ? `${selectedPaciente.codigoInclusion} — ${selectedPaciente.iniciales ?? ""}`
+                    : "Selecciona un CRD"
+                }
+                className={readOnlyCls}
+              />
+            </div>
+          )}
+
+          {/* Medicamento */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
               Medicamento
@@ -206,17 +231,18 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            {/* Vía — select */}
+            {/* Vía */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Vía de Administración
               </label>
               {editing ? (
                 <select
-                  value={form.via}
+                  value={form.via ?? ""}
                   onChange={(e) => setForm({ ...form, via: e.target.value })}
                   className={selectCls}
                 >
+                  <option value="">Seleccionar vía...</option>
                   {[
                     "Oral",
                     "Intravenosa",
@@ -231,117 +257,63 @@ export function VerEditarConcomitanteModal({ concomitante, onClose }: Props) {
                 </select>
               ) : (
                 <p className="text-sm font-medium text-[var(--foreground)]">
-                  {form.via}
+                  {form.via ?? "—"}
                 </p>
               )}
             </div>
+
+            {/* Dosis Diaria */}
             <div className="flex flex-col gap-1.5">
               <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
                 Dosis Diaria
               </label>
               {editing ? (
                 <input
-                  value={form.dosisDiaria}
+                  value={form.dosisDiaria ?? ""}
                   onChange={(e) =>
                     setForm({ ...form, dosisDiaria: e.target.value })
                   }
                   className={inputCls}
+                  placeholder="Ej: 1.7g (2 tabs/día)"
                 />
               ) : (
                 <p className="text-sm font-medium text-[var(--foreground)]">
-                  {form.dosisDiaria}
+                  {form.dosisDiaria ?? "—"}
                 </p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                Fecha Inicio
-              </label>
-              {editing ? (
-                <input
-                  type="date"
-                  value={form.fechaInicio}
-                  onChange={(e) =>
-                    setForm({ ...form, fechaInicio: e.target.value })
-                  }
-                  className={inputCls}
-                />
-              ) : (
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  {form.fechaInicio}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-                Fecha Fin
-              </label>
-              {editing ? (
-                <input
-                  type="date"
-                  value={form.fechaFin ?? ""}
-                  onChange={(e) =>
-                    setForm({ ...form, fechaFin: e.target.value })
-                  }
-                  className={inputCls}
-                />
-              ) : (
-                <p className="text-sm font-medium text-[var(--foreground)]">
-                  {form.fechaFin || "—"}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              Motivo de Uso
-            </label>
-            {editing ? (
-              <input
-                value={form.motivoUso}
-                onChange={(e) =>
-                  setForm({ ...form, motivoUso: e.target.value })
-                }
-                className={inputCls}
-              />
-            ) : (
-              <p className="text-sm font-medium text-[var(--foreground)] italic">
-                {form.motivoUso}
-              </p>
-            )}
-          </div>
-
-          {/* Estado — select */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
-              Estado
-            </label>
-            {editing ? (
-              <select
-                value={form.estado}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    estado: e.target.value as TratamientoConcomitante["estado"],
-                  })
-                }
-                className={selectCls}
-              >
-                {["Activo", "Finalizado", "Suspendido"].map((s) => (
-                  <option key={s}>{s}</option>
-                ))}
-              </select>
-            ) : (
-              <span
-                className={`text-[11px] font-bold px-2.5 py-1 rounded-full w-fit ${estadoStyle[form.estado]}`}
-              >
-                {form.estado.toUpperCase()}
+          {/* Created / Updated info */}
+          <div className="grid grid-cols-2 gap-4 p-4 bg-[var(--muted)] rounded-xl">
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                Creado
               </span>
-            )}
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                {form.createdAt
+                  ? new Date(form.createdAt).toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--muted-foreground)]">
+                Actualizado
+              </span>
+              <span className="text-sm font-medium text-[var(--foreground)]">
+                {form.updatedAt
+                  ? new Date(form.updatedAt).toLocaleDateString("es-ES", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                    })
+                  : "—"}
+              </span>
+            </div>
           </div>
         </div>
       </div>

@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
+import { Modal, FormField, inputCls } from '@/components/ui/modal'
+import { SearchableRelationSelect } from '@/components/ui/searchable-relation-select'
 import { concomitantesApi } from '@/lib/api/concomitantes'
 import { useCrds } from '@/lib/api/crds'
 
@@ -25,6 +26,14 @@ export function NuevoConcomitanteModal({ open, onClose }: Props) {
     populate: { paciente: { fields: ['id', 'iniciales', 'codigoInclusion'] } },
   })
 
+  const crdOptions = crds.map((c) => {
+    const p = typeof c.paciente === 'object' ? c.paciente : null
+    return {
+      value: String(c.id),
+      label: `CRD #${c.id} — ${p?.codigoInclusion ?? '?'} ${p?.iniciales ? `(${p.iniciales})` : ''}`,
+    }
+  })
+
   const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,6 +55,8 @@ export function NuevoConcomitanteModal({ open, onClose }: Props) {
       setSaving(false)
     }
   }
+
+  const selectCls = 'w-full px-3 py-2.5 bg-white border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal)]/20 focus:border-[var(--brand-teal)] transition-colors'
 
   return (
     <Modal
@@ -88,22 +99,14 @@ export function NuevoConcomitanteModal({ open, onClose }: Props) {
       )}
       <form id="nuevo-concomitante-form" onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <FormField label="CRD / Paciente" required className="col-span-1 sm:col-span-2">
-          <select
-            className={selectCls}
+          <SearchableRelationSelect
+            options={crdOptions}
             value={form.crdId}
-            onChange={(e) => update('crdId', e.target.value)}
+            onChange={(v) => update('crdId', v)}
+            placeholder="Buscar CRD o paciente..."
+            emptyLabel="Seleccionar CRD..."
             required
-          >
-            <option value="">Seleccionar CRD...</option>
-            {crds.map((c) => {
-              const p = typeof c.paciente === 'object' ? c.paciente : null
-              return (
-                <option key={c.id} value={String(c.id)}>
-                  CRD #{c.id} — {p?.codigoInclusion ?? '?'} {p?.iniciales ? `(${p.iniciales})` : ''}
-                </option>
-              )
-            })}
-          </select>
+          />
         </FormField>
 
         <FormField label="Nombre del Medicamento" required className="col-span-1 sm:col-span-2">

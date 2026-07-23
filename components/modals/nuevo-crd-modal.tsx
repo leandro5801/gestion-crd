@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
+import { Modal, FormField, inputCls } from '@/components/ui/modal'
+import { SearchableRelationSelect } from '@/components/ui/searchable-relation-select'
 import { crdsApi } from '@/lib/api/crds'
 import { usePacientes } from '@/lib/api/pacientes'
 
@@ -21,6 +22,11 @@ export function NuevoCRDModal({ open, onClose }: Props) {
   const [error, setError] = useState<string | null>(null)
 
   const { items: pacientes } = usePacientes({ pagination: { pageSize: 200 }, populate: undefined })
+
+  const pacienteOptions = pacientes.map((p) => ({
+    value: String(p.id),
+    label: `${p.codigoInclusion} — ${p.iniciales}`,
+  }))
 
   const update = (k: keyof typeof form, v: string | boolean) =>
     setForm((f) => ({ ...f, [k]: v }))
@@ -44,6 +50,8 @@ export function NuevoCRDModal({ open, onClose }: Props) {
       setSaving(false)
     }
   }
+
+  const selectCls = 'w-full px-3 py-2.5 bg-white border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal)]/20 focus:border-[var(--brand-teal)] transition-colors'
 
   return (
     <Modal
@@ -86,19 +94,14 @@ export function NuevoCRDModal({ open, onClose }: Props) {
       )}
       <form id="nuevo-crd-form" onSubmit={handleSubmit} className="flex flex-col gap-4">
         <FormField label="Paciente" required>
-          <select
-            className={selectCls}
+          <SearchableRelationSelect
+            options={pacienteOptions}
             value={form.pacienteId}
-            onChange={(e) => update('pacienteId', e.target.value)}
+            onChange={(v) => update('pacienteId', v)}
+            placeholder="Buscar paciente..."
+            emptyLabel="Seleccionar paciente..."
             required
-          >
-            <option value="">Seleccionar paciente...</option>
-            {pacientes.map((p) => (
-              <option key={p.id} value={String(p.id)}>
-                {p.codigoInclusion} — {p.iniciales}
-              </option>
-            ))}
-          </select>
+          />
         </FormField>
 
         <FormField label="Fecha de Creación" required>
