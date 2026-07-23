@@ -57,10 +57,14 @@ export function createCrud<T extends { id: ID }>(config: CrudConfig) {
   }
 
   async function update(id: ID, data: Partial<T>, query?: StrapiQuery): Promise<T> {
+    console.log(data);
+    
     const raw = await apiFetch(strapiKey(`${resource}/${id}`, buildSingleQuery(query)), {
       method: 'PUT',
       body: { data },
     })
+    console.log(raw);
+    
     return flatten<T>(raw)
   }
 
