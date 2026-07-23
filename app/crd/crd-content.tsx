@@ -299,8 +299,8 @@ export function CRDContent() {
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(c.id)}
-                              disabled={deletingId === c.id}
+                              onClick={() => handleDelete(c.documentId)}
+                              disabled={deletingId === c.documentId}
                               className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Eliminar"
                             >

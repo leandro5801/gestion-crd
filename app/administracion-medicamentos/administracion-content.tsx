@@ -307,8 +307,8 @@ export function AdministracionContent() {
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(a.id)}
-                              disabled={deletingId === a.id}
+                              onClick={() => handleDelete(a.documentId)}
+                              disabled={deletingId === a.documentId}
                               className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Eliminar"
                             >

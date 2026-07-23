@@ -54,7 +54,7 @@ export function VerEditarEventoModal({ evento, onClose }: Props) {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await updateEventoAdverso(evento.id, form)
+      await updateEventoAdverso(evento.documentId, form)
       setSaving(false); setSaved(true); setEditing(false)
       setTimeout(() => setSaved(false), 2500)
     } catch (error) {

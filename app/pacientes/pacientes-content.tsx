@@ -328,8 +328,8 @@ export function PacientesContent() {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(p.id)}
-                            disabled={deletingId === p.id}
+                            onClick={() => handleDelete(p.documentId)}
+                            disabled={deletingId === p.documentId}
                             className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Eliminar"
                           >

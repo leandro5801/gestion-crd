@@ -302,8 +302,8 @@ export function EventosAdversosContent() {
                               <Eye className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleDelete(e.id)}
-                              disabled={deletingId === e.id}
+                              onClick={() => handleDelete(e.documentId)}
+                              disabled={deletingId === e.documentId}
                               className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Eliminar"
                             >
