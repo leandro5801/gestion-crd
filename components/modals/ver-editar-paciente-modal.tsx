@@ -5,6 +5,7 @@ import { X, Edit2, Save, User, AlertTriangle, CheckCircle } from "lucide-react";
 import { pacientesApi } from "@/lib/api/pacientes";
 import { useEstudios } from "@/lib/api/estudios";
 import { useSitiosClinicos } from "@/lib/api/sitios-clinicos";
+import { SearchableRelationSelect } from "@/components/ui/searchable-relation-select";
 import type { Paciente, Sexo } from "@/lib/types";
 
 const selectCls =
@@ -30,6 +31,15 @@ export function VerEditarPacienteModal({ paciente, onClose }: Props) {
   const { items: sitios } = useSitiosClinicos({
     pagination: { pageSize: 100 },
   });
+
+  const estudioOptions = estudios.map((e) => ({
+    value: String(e.id),
+    label: `${e.codigoProtocolo} — ${e.titulo}`,
+  }));
+  const sitioOptions = sitios.map((s) => ({
+    value: String(s.id),
+    label: `${s.codigo} — ${s.nombre}`,
+  }));
 
   useEffect(() => {
     if (paciente) {
@@ -241,18 +251,13 @@ export function VerEditarPacienteModal({ paciente, onClose }: Props) {
                 Estudio
               </label>
               {editing ? (
-                <select
+                <SearchableRelationSelect
+                  options={estudioOptions}
                   value={estudioId}
-                  onChange={(e) => setEstudioId(e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="">Sin estudio</option>
-                  {estudios.map((e) => (
-                    <option key={e.id} value={String(e.id)}>
-                      {e.codigoProtocolo} — {e.titulo}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setEstudioId}
+                  placeholder="Buscar estudio..."
+                  emptyLabel="Sin estudio"
+                />
               ) : (
                 <p className="text-sm font-medium">
                   {typeof form.estudio === "object"
@@ -266,18 +271,13 @@ export function VerEditarPacienteModal({ paciente, onClose }: Props) {
                 Sitio Clínico
               </label>
               {editing ? (
-                <select
+                <SearchableRelationSelect
+                  options={sitioOptions}
                   value={sitioId}
-                  onChange={(e) => setSitioId(e.target.value)}
-                  className={selectCls}
-                >
-                  <option value="">Sin sitio</option>
-                  {sitios.map((s) => (
-                    <option key={s.id} value={String(s.id)}>
-                      {s.codigo} — {s.nombre}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setSitioId}
+                  placeholder="Buscar sitio clínico..."
+                  emptyLabel="Sin sitio"
+                />
               ) : (
                 <p className="text-sm font-medium">
                   {typeof form.sitioClinico === "object"

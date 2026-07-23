@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Modal, FormField, inputCls, selectCls } from '@/components/ui/modal'
+import { Modal, FormField, inputCls } from '@/components/ui/modal'
+import { SearchableRelationSelect } from '@/components/ui/searchable-relation-select'
 import { pacientesApi } from '@/lib/api/pacientes'
 import { useEstudios } from '@/lib/api/estudios'
 import { useSitiosClinicos } from '@/lib/api/sitios-clinicos'
@@ -31,6 +32,16 @@ export function NuevoPacienteModal({ open, onClose }: Props) {
   const { items: estudios } = useEstudios({ pagination: { pageSize: 100 } })
   const { items: sitios } = useSitiosClinicos({ pagination: { pageSize: 100 } })
 
+  const estudioOptions = estudios.map((e) => ({
+    value: String(e.id),
+    label: `${e.codigoProtocolo} — ${e.titulo}`,
+  }))
+
+  const sitioOptions = sitios.map((s) => ({
+    value: String(s.id),
+    label: `${s.codigo} — ${s.nombre}`,
+  }))
+
   const update = (k: keyof typeof form, v: string) => setForm((f) => ({ ...f, [k]: v }))
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -58,6 +69,8 @@ export function NuevoPacienteModal({ open, onClose }: Props) {
       setSaving(false)
     }
   }
+
+  const selectCls = 'w-full px-3 py-2.5 bg-white border border-[var(--border)] rounded-lg text-sm text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--brand-teal)]/20 focus:border-[var(--brand-teal)] transition-colors'
 
   return (
     <Modal
@@ -205,35 +218,25 @@ export function NuevoPacienteModal({ open, onClose }: Props) {
           <p className="text-xs font-bold uppercase tracking-widest text-[var(--muted-foreground)] mb-3">
             Asignación al Estudio
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <FormField label="Estudio Clínico" required className="col-span-1 sm:col-span-2">
-              <select
-                className={selectCls}
+          <div className="flex flex-col gap-4">
+            <FormField label="Estudio Clínico" required>
+              <SearchableRelationSelect
+                options={estudioOptions}
                 value={form.estudioId}
-                onChange={(e) => update('estudioId', e.target.value)}
+                onChange={(v) => update('estudioId', v)}
+                placeholder="Buscar estudio..."
+                emptyLabel="Seleccionar estudio..."
                 required
-              >
-                <option value="">Seleccionar estudio...</option>
-                {estudios.map((e) => (
-                  <option key={e.id} value={String(e.id)}>
-                    {e.codigoProtocolo} — {e.titulo}
-                  </option>
-                ))}
-              </select>
+              />
             </FormField>
-            <FormField label="Sitio Clínico" className="col-span-1 sm:col-span-2">
-              <select
-                className={selectCls}
+            <FormField label="Sitio Clínico">
+              <SearchableRelationSelect
+                options={sitioOptions}
                 value={form.sitioClinicoId}
-                onChange={(e) => update('sitioClinicoId', e.target.value)}
-              >
-                <option value="">Seleccionar sitio...</option>
-                {sitios.map((s) => (
-                  <option key={s.id} value={String(s.id)}>
-                    {s.codigo} — {s.nombre}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => update('sitioClinicoId', v)}
+                placeholder="Buscar sitio clínico..."
+                emptyLabel="Seleccionar sitio clínico..."
+              />
             </FormField>
           </div>
         </div>
