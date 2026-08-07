@@ -11,6 +11,7 @@
 import useSWR from 'swr'
 import { apiFetch, strapiKey } from '@/lib/strapi/fetcher'
 import { flattenPaginated } from '@/lib/strapi/mappers'
+import { useStudyScope } from '@/components/auth/study-scope-provider'
 import type { Estudio, EventoAdverso, Paciente, AdministracionMedicamento } from '@/lib/types'
 
 export interface DashboardSummary {
@@ -25,10 +26,11 @@ export interface DashboardSummary {
   pacientesPorMes: { mes: string; real: number; proyectado: number }[]
 }
 
-async function fetchSummary(): Promise<DashboardSummary> {
-  // 1. Try the custom endpoint first.
+async function fetchSummary(studyId: string): Promise<DashboardSummary> {
+  // 1. Try the custom endpoint first. The backend must enforce the same scope.
   try {
-    const data = (await apiFetch('/api/strapi/dashboard/summary')) as DashboardSummary | { data: DashboardSummary }
+    const query = studyId !== 'all' ? `?studyId=${encodeURIComponent(studyId)}` : ''
+    const data = (await apiFetch(`/api/strapi/dashboard/summary${query}`)) as DashboardSummary | { data: DashboardSummary }
     if (data && typeof data === 'object' && 'estudiosActivos' in data) return data as DashboardSummary
     if ((data as { data?: DashboardSummary })?.data) return (data as { data: DashboardSummary }).data
   } catch {
@@ -72,9 +74,10 @@ async function fetchSummary(): Promise<DashboardSummary> {
 }
 
 export function useDashboardSummary() {
+  const { selectedStudyId } = useStudyScope()
   const { data, error, isLoading, mutate } = useSWR<DashboardSummary>(
-    'dashboard:summary',
-    fetchSummary,
+    `dashboard:summary:${selectedStudyId}`,
+    () => fetchSummary(selectedStudyId),
     { revalidateOnFocus: false }
   )
   return { summary: data, error, isLoading, mutate }

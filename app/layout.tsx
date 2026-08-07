@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { AuthProvider } from '@/components/auth/auth-provider'
+import { StudyScopeProvider } from '@/components/auth/study-scope-provider'
 import { getSession } from '@/lib/auth/session'
 import './globals.css'
 
@@ -31,7 +32,9 @@ export default async function RootLayout({
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider initialUser={session?.user ?? null}>{children}</AuthProvider>
+        <AuthProvider initialUser={session?.user ?? null}>
+          <StudyScopeProvider>{children}</StudyScopeProvider>
+        </AuthProvider>
         <Analytics />
       </body>
     </html>

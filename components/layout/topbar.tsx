@@ -3,6 +3,8 @@
 import { Bell, Settings, Search } from 'lucide-react'
 import Image from 'next/image'
 import { useAuth } from '@/components/auth/auth-provider'
+import { useStudyScope } from '@/components/auth/study-scope-provider'
+import { SearchableRelationSelect } from '@/components/ui/searchable-relation-select'
 
 interface TopbarProps {
   currentStudy?: string
@@ -18,8 +20,16 @@ export function Topbar({
   userAvatar,
 }: TopbarProps) {
   const { user } = useAuth()
+  const { studies, selectedStudyId, setSelectedStudyId, isLoading: studiesLoading } = useStudyScope()
   const displayName = userName || user?.username || user?.email || 'Investigador'
   const displayRole = userRole || user?.role?.name || 'Pharmacovigilance'
+  const studyOptions = [
+    { value: 'all', label: 'Todos los estudios' },
+    ...studies.map((study) => ({
+      value: String(study.id ?? study.documentId),
+      label: `${study.codigoProtocolo} — ${study.titulo}`,
+    })),
+  ]
   return (
     <header className="h-14 bg-white border-b border-[var(--border)] flex items-center px-6 gap-4 flex-shrink-0">
       {/* Brand text */}
@@ -28,14 +38,18 @@ export function Topbar({
         <span className="font-bold text-base text-[var(--foreground)]">Alca Laboratorios</span>
       </div>
 
-      {/* Current study pill */}
-      {currentStudy && (
-        <div className="hidden md:block">
-          <span className="text-sm font-medium text-[var(--brand-teal)] border-b-2 border-[var(--brand-teal)] pb-0.5">
-            Estudio actual: {currentStudy}
-          </span>
-        </div>
-      )}
+      {/* Global study filter */}
+      <div className="hidden md:block w-72">
+        <SearchableRelationSelect
+          options={studyOptions}
+          value={selectedStudyId}
+          onChange={setSelectedStudyId}
+          placeholder="Buscar estudio..."
+          emptyLabel={studiesLoading ? "Cargando estudios..." : "Todos los estudios"}
+          disabled={studiesLoading}
+          className="[&>button]:border-0 [&>button]:bg-transparent [&>button]:py-1 [&>button]:font-medium [&>button]:text-[var(--brand-teal)]"
+        />
+      </div>
 
       {/* Search */}
       <div className="flex-1 max-w-md ml-auto hidden lg:flex items-center gap-2 bg-[var(--muted)] rounded-lg px-3 py-2">
